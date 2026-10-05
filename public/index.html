@@ -232,6 +232,38 @@ label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-
 .chat-form button { background: var(--yellow); border: none; border-radius: 10px; padding: 0 14px; font-weight: 700; font-size: 15px; color: #000; }
 .chat-error { color: var(--warn); font-size: 13px; min-height: 0; }
 .chat-toast { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); max-width: 90%; background: rgba(20, 20, 20, 0.92); color: #fff; padding: 8px 14px; border-radius: 14px; z-index: 25; font-size: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* ---- Powered by Gentronics Lab: on every page ---- */
+#brand { position: fixed; left: 0; right: 0; bottom: calc(3px + env(safe-area-inset-bottom, 0px)); text-align: center; font-size: 11px; letter-spacing: 0.3px; color: rgba(255, 255, 255, 0.7); z-index: 50; pointer-events: none; text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6); }
+#app { padding-bottom: 20px; }
+.chat-panel { padding-bottom: calc(26px + env(safe-area-inset-bottom, 0px)); }
+
+/* ---- language buttons ---- */
+.lang-switch { display: flex; justify-content: center; gap: 6px; margin: 2px 0 8px; }
+.home .lang-switch { align-self: flex-end; margin-bottom: 0; }
+.lang-switch .lang { background: rgba(255, 255, 255, 0.12); color: var(--text); border: 1px solid rgba(255, 255, 255, 0.3); border-radius: 14px; padding: 4px 12px; font-size: 13px; }
+.lang-switch .lang.on { background: var(--yellow); color: #000; border-color: var(--yellow); font-weight: 700; }
+
+/* ---- the rules ---- */
+.rules-overlay { z-index: 15; }
+.dialog.rules { max-width: 460px; text-align: left; }
+.dialog.rules h2 { text-align: center; }
+.rules-text h3 { font-size: 15px; margin: 12px 0 4px; color: var(--yellow); }
+.rules-text ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+.rules-text li { margin-bottom: 4px; }
+
+/* ---- smoother flying cards ---- */
+.flying { will-change: transform; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45); }
+.card.landing { visibility: hidden; }
+/* a meld that just got new cards glows for a moment */
+.meld.fresh { animation: freshGlow 2200ms ease-out both; }
+@keyframes freshGlow {
+  0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); background: rgba(255, 213, 74, 0); }
+  12% { box-shadow: 0 0 0 3px #fff, 0 0 22px var(--yellow); background: rgba(255, 213, 74, 0.35); }
+  60% { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.6), 0 0 14px var(--yellow); background: rgba(255, 213, 74, 0.18); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); background: rgba(255, 213, 74, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .meld.fresh { animation: none; } }
 </style>
 </head>
 <body>
@@ -1034,61 +1066,266 @@ const TEXT_STYLE = '\uFE0E';                    // asks the phone to draw ♥ as
 // Where each player sits, seen from you (you are always at the bottom). Play goes to the right.
 const AREAS = { 2: ['bottom', 'top'], 3: ['bottom', 'right', 'left'], 4: ['bottom', 'right', 'top', 'left'] };
 const BOT_DELAY = (typeof window.ZHOL_BOT_DELAY === 'number') ? window.ZHOL_BOT_DELAY : 650;
-const FLY_MS = 420;
+const FLY_MS = 520;
+const STAGGER_MS = 110;                         // cards of a meld leave one after another
+const FRESH_MS = 2200;                          // how long a new meld glows
+const CARD_HAND = 60, CARD_MELD = 28, CARD_PILE = 46, CARD_BOTTOM = 38, CARD_STAGED = 26;
 const SOLO_NAMES = ['Ti', 'Besnik', 'Drita', 'Arben'];
 
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const rankText = (r) => (r === 1 ? 'A' : r === 11 ? 'J' : r === 12 ? 'Q' : r === 13 ? 'K' : String(r));
-const cardText = (c) => (Z.isJoker(c) ? 'Xhoker' : rankText(c.rank) + SUIT_SYMBOL[c.suit]);
+const cardText = (c) => (Z.isJoker(c) ? t('joker') : rankText(c.rank) + SUIT_SYMBOL[c.suit]);
 
 // ============================================================
-// Albanian texts
+// Texts in Albanian (sq) and English (en)
 // ============================================================
 
-const ERR = {
-  wrongPhase: 'Këtë nuk mund ta bësh tani.',
-  cardNotInHand: 'Kjo letër nuk është në dorën tënde.',
-  notAValidMeld: 'Këto letra nuk bëjnë kombinim.',
-  notEnoughToOpen: 'Të duhen 51 pikë për të hapur.',
-  mustKeepOneCard: 'Mbaj një letër për ta hedhur.',
-  mustOpenFirst: 'Duhet të hapësh më parë.',
-  discardPileEmpty: 'Nuk ka letër të hedhur për të marrë.',
-  discardMustBeInMelds: 'Letra e hedhur duhet të jetë në kombinimet e tua.',
-  noBottomCard: 'Nuk ka letër poshtë pakos.',
-  bottomCardIsNotAHand: 'Letra poshtë pakos merret vetëm për Dorë.',
-  noCardsLeft: 'Nuk ka më letra për të marrë.',
-  badMeldIndex: 'Ky kombinim nuk ekziston.',
-  cardCantBeSold: 'Kjo letër nuk shkon këtu.',
-  cannotTakeJoker: 'Me këto letra nuk mund ta marrësh xhokerin.',
-  illegalDiscard: 'Këtë letër nuk mund ta hedhësh: është xhoker, ose është e shitur (shkon në një kombinim në tavolinë).',
-  noGame: 'Nuk u gjet asnjë lojë me këtë kod.',
-  started: 'Kjo lojë ka filluar tashmë.',
-  full: 'Loja është plot (4 lojtarë).',
-  noName: 'Shkruaj emrin tënd.',
-  notHost: 'Këtë mund ta bëjë vetëm ai që krijoi lojën.',
-  badToken: 'Nuk je më në këtë lojë.',
-  notYourTurn: 'Nuk është radha jote.',
-  notStarted: 'Loja nuk ka filluar ende.',
-  needTwo: 'Duhen të paktën 2 lojtarë për të filluar.',
-  chatEmpty: 'Shkruaj diçka.',
-  chatTooFast: 'Pak më ngadalë me mesazhet.',
-  network: 'Nuk ka lidhje me serverin. Provo përsëri.',
-  generic: 'Ky veprim nuk lejohet.',
+const STR = {
+  sq: {
+    you: 'Ti', joker: 'Xhoker', jokerText: 'XHOKER', newTag: 'E RE', and: ' dhe ',
+    tagline: 'Loja shqiptare me letra', play: 'LUAJ', rules: 'Rregullat e lojës', language: 'Gjuha',
+    howPlay: 'Si do të luash?',
+    createWithFriends: 'Krijo një lojë me shokët', createNote: 'Ti merr një kod dhe ua dërgon shokëve. Luani 2, 3 ose 4 veta.',
+    joinWithCode: 'Hyr në një lojë me kod', joinNote: 'Një shok të ka dërguar një kod.',
+    vsComputer: 'Luaj kundër kompjuterit', vsComputerNote: 'Vetëm ti dhe tre lojtarë të kompjuterit.',
+    back: 'Kthehu', createTitle: 'Krijo një lojë', yourName: 'Emri yt', namePlaceholder: 'Shkruaj emrin',
+    creating: 'Duke krijuar...', createBtn: 'Krijo lojën', joinTitle: 'Hyr në një lojë', gameCode: 'Kodi i lojës',
+    codePlaceholder: 'p.sh. K7P2', joining: 'Duke hyrë...', joinBtn: 'Hyr', connecting: 'Duke u lidhur...',
+    lobby: 'Dhoma e pritjes', shareBtn: 'Dërgo lidhjen shokëve', shareNote: 'Ose thuaju kodin. Ata shtypin "Hyr në një lojë me kod".',
+    players: (n) => 'Lojtarët (' + n + ' nga 4)', youBadge: 'ti', offline: 'jo në linjë',
+    onlyPeople: 'Luajnë vetëm njerëz: 2, 3 ose 4 veta.', startWith: (n) => 'Fillo lojën me ' + n + ' lojtarë',
+    waitFriend: 'Prit që të hyjë të paktën një shok.', waitHostStart: (n) => 'Duke pritur që ' + n + ' ta fillojë lojën...',
+    leave: 'Dil', reconnecting: 'Lidhja u ndërpre. Po lidhem përsëri...', linkCopied: 'Lidhja u kopjua. Dërgoja shokëve!',
+    shareText: (c) => 'Eja luaj Zhol me mua! Kodi: ' + c, typeCode: 'Shkruaj kodin e lojës.',
+    roundOf: (n, t) => 'Raundi ' + n + ' nga ' + t, codeLabel: (c) => 'Kodi ' + c,
+    dealer: 'Ndarësi', opened: 'Hapur', computer: 'Kompjuter', computerPlays: 'Luan kompjuteri', offlineBadge: 'Jo në linjë',
+    letPlayerPlay: 'Lojtari luan vetë', letComputerPlay: 'Lëre kompjuterin të luajë', points: (n) => 'Pikët ' + n,
+    deck: 'Pakoja', thrown: 'E hedhur', underDeck: (c) => 'Poshtë pakos: ' + c,
+    meldPointsOpened: (p) => 'Pikët e kombinimeve: ' + p, meldPointsNeed: (p, m) => 'Pikët e kombinimeve: ' + p + ' nga ' + m + ' që duhen',
+    findMelds: 'Gjej kombinimet', makeMeld: 'Bëj kombinim', open: 'Hap', cancel: 'Anulo', drawDeck: 'Merr nga pakoja',
+    take: (c) => 'Merr ' + c, openWith: (c) => 'Hapu me ' + c, bottomBtn: 'Letra poshtë (Mbylle me Hand)',
+    layDown: 'Shtro', throwCard: 'Hidh letrën', yourCards: (n) => 'Letrat e tua (' + n + ')',
+    dragTip: "Tërhiqi letrat për t'i renditur", bySuit: 'Sipas shenjës', byRank: 'Sipas numrit',
+    hRoundOver: 'Raundi mbaroi.', hPlaying: (n, comp) => n + (comp ? ' (kompjuteri)' : '') + ' po luan...',
+    hYouStart: 'Ti fillon. Hidh një letër.', hOpenWithDiscard: 'Bëj kombinime që përdorin letrën me kornizë portokalli, pastaj shtyp Hap.',
+    hDrawOpened: 'Radha jote: merr një letër nga pakoja ose letrën e hedhur.', hDraw: 'Radha jote: merr një letër nga pakoja.',
+    hTapGlowing: 'Prek një kombinim që ndriçon.', hPlayOpened: 'Shtro kombinime, shit letra, merr xhokerë, pastaj hidh një letër.',
+    hPlay: 'Hap me kombinime prej 51 pikësh, ose thjesht hidh një letër.',
+    mPick3: 'Zgjidh të paktën 3 letra për një kombinim.', mNotMeld: 'Këto letra nuk bëjnë urë ose grup.',
+    mNoMelds: 'Nuk gjej asnjë kombinim në dorën tënde.', mTapOne: 'Prek një letër për ta hedhur.',
+    mDrawFirst: 'Merr një letër më parë.', mOpenFirstSell: 'Mund të shesësh letra dhe të marrësh xhokerë pasi të hapësh.',
+    mSelectFirst: 'Zgjidh një letër, pastaj prek një kombinim për ta shitur.', mNoFit: 'Kjo nuk shkon në këtë kombinim.',
+    cStart: (c) => 'Vendose ' + c + ' në fillim', cEnd: (c) => 'Vendose ' + c + ' në fund', cSell: (c) => 'Shite ' + c + ' këtu',
+    cJoker: (cs) => 'Merr xhokerin (jep ' + cs + ')', chooseTitle: 'Çfarë do të bësh?',
+    eDraw: (you, n, c) => (you ? 'Ti more ' + c + '.' : n + ' mori një letër.'),
+    eTake: (you, n, c) => (you ? 'Ti more ' : n + ' mori ') + c + '.',
+    eTakeOpen: (you, n, c) => (you ? 'Ti more ' + c + ' dhe hape!' : n + ' mori ' + c + ' dhe hapi!'),
+    eBottom: (you, n) => (you ? 'Ti more' : n + ' mori') + ' letrën poshtë pakos. Hand!',
+    eLay: (you, n, k) => (you ? 'Ti shtrove ' : n + ' shtroi ') + k + (k === 1 ? ' kombinim.' : ' kombinime.'),
+    eSell: (you, n, c) => (you ? 'Ti shite ' : n + ' shiti ') + c + '.',
+    eJoker: (you, n) => (you ? 'Ti more' : n + ' mori') + ' një xhoker!',
+    eThrow: (you, n, c) => (you ? 'Ti hodhe ' : n + ' hodhi ') + c + '.',
+    close: {
+      normal: (you, n) => (you ? 'Ti e mbylle lojën.' : n + ' e mbylli lojën.'),
+      normalWithJoker: (you, n) => (you ? 'Ti e mbylle lojën me xhoker.' : n + ' e mbylli lojën me xhoker.'),
+      hand: (you, n) => (you ? 'Ti e mbylle me Hand!' : n + ' e mbylli me Hand!'),
+      handWithJoker: (you, n) => (you ? 'Ti e mbylle me Hand dhe xhoker!' : n + ' e mbylli me Hand dhe xhoker!'),
+      ngjyre: (you, n) => (you ? 'Ti bëre Ngjyrë!' : n + ' bëri Ngjyrë!'),
+    },
+    gameOver: 'Loja mbaroi', roundOver: (n) => 'Raundi ' + n + ' mbaroi', youWin: 'Ti fitove!',
+    tieWith: (names) => 'Barazim: Ti dhe ' + names, winners: (names, many) => names + (many ? ' fituan.' : ' fitoi.'),
+    colRound: 'Raundi', colTotal: 'Totali', lowestWins: 'Fiton totali më i ulët.', newGame: 'Lojë e re', nextRound: 'Raundi tjetër',
+    waitHostNext: (n) => 'Duke pritur që ' + n + ' të vazhdojë...', toStart: 'Kthehu në fillim',
+    helpTitle: 'Si luhet', close2: 'Mbyll', leaveGame: 'Dil nga loja',
+    helpItems: [
+      'Ti je poshtë në tavolinë. Loja shkon djathtas: pas teje luan ai në të djathtë, pastaj ai përballë, pastaj ai në të majtë.',
+      'Kombinimet e çdo lojtari janë para tij. Shkronja e vogël mbi xhoker tregon cilën letër zëvendëson.',
+      "Prek letrat për t'i zgjedhur. <b>Tërhiqi</b> majtas ose djathtas për t'i renditur si të duash. Letra që sapo more ka kornizë jeshile dhe del në fund djathtas.",
+      '<b>Gjej kombinimet</b> i gjen kombinimet më të mira për ty. <b>Bëj kombinim</b> përdor letrat që zgjodhe.',
+      'Të duhen <b>51 pikë</b> për të hapur. <b>Hapu me ...</b> merr letrën e hedhur dhe hap me të.',
+      'Pasi hap: zgjidh një letër dhe prek një <b>kombinim që ndriçon</b> për ta shitur. Zgjidh letrat e vërteta dhe prek një kombinim me xhoker për ta marrë xhokerin.',
+      'Zgjidh një letër dhe shtyp <b>Hidh letrën</b> për ta mbaruar radhën. Letra e fundit që hedh e mbyll lojën.',
+      'Pas 8 raundesh fiton ai me më pak pikë.',
+    ],
+    chat: 'Bisedë', chatPlaceholder: 'Shkruaj një mesazh...', send: 'Dërgo', chatEmpty: 'Ende asnjë mesazh. Thuaj diçka!',
+    quick: ['👍', '😂', '😮', 'Bravo!', 'Shpejt!', 'Ah, jo!'],
+    rulesHTML:
+      '<h3>Bazat</h3><ul>' +
+      '<li>Zhol luhet nga 2 deri në 4 lojtarë me dy pako letra dhe katër xhokerë (108 letra). Një lojë ka 8 raunde. Fiton ai që ka më pak pikë në fund.</li>' +
+      '<li>Çdo lojtar merr 14 letra. Lojtari në të djathtë të ndarësit merr 15 dhe fillon duke hedhur një letër. Loja shkon djathtas.</li>' +
+      '<li>Para ndarjes, lojtari në të majtë të ndarësit e pret pakon dhe shikon letrën e fundit të pjesës që preu. Nëse është xhoker, e mban. Çdo letër tjetër vendoset e hapur poshtë pakos.</li></ul>' +
+      '<h3>Radha jote</h3><ul>' +
+      '<li>Merr një letër nga pakoja. Pastaj shtro kombinime nëse mundesh dhe hidh një letër.</li>' +
+      '<li>Letrën që hodhi lojtari para teje mund ta marrësh vetëm nëse ke hapur, ose nëse hap me të menjëherë (duhet të jetë në kombinimet e tua).</li></ul>' +
+      '<h3>Kombinimet</h3><ul>' +
+      '<li><b>Urë:</b> 3 ose më shumë letra me radhë të së njëjtës shenjë, p.sh. 4♥ 5♥ 6♥. Asi mund të jetë poshtë (A-2-3) ose lart (Q-K-A), por jo K-A-2.</li>' +
+      '<li><b>Grup:</b> 3 ose 4 letra me të njëjtin numër në shenja të ndryshme, p.sh. Q♥ Q♦ Q♣.</li>' +
+      '<li>Xhokeri zëvendëson çdo letër. Një kombinim duhet të ketë të paktën një letër të vërtetë.</li></ul>' +
+      '<h3>Hapja</h3><ul>' +
+      '<li>Për të hapur, kombinimet e para duhet të kenë të paktën <b>51 pikë</b>. Letrat 2–9 vlejnë sa numri i tyre; 10, J, Q, K vlejnë 10. Asi vlen 1 në A-2-3 dhe 10 në Q-K-A ose në grup asash. Xhokeri vlen sa letra që zëvendëson.</li>' +
+      '<li>Pasi hap, mund të <b>shesësh</b> letra: t\'i shtosh në çdo kombinim në tavolinë.</li>' +
+      '<li>Xhokerin nga tavolina e merr duke vendosur letrën e vërtetë në vendin e tij (vetëm pasi ke hapur). Nga një grup si K♥ K♦ ★ të duhen të dy mbretërit që mungojnë.</li>' +
+      '<li><b>E shitur:</b> nëse nuk ke hapur, nuk mund të hedhësh një letër që shkon në një kombinim në tavolinë. Xhokerin nuk mund ta hedhësh, përveçse si letrën e fundit.</li></ul>' +
+      '<h3>Mbyllja</h3><ul>' +
+      '<li>E mbyll lojën kur ke shtruar 14 letra dhe hedh letrën e 15-të: <b>−40</b> pikë (<b>−80</b> nëse letra e fundit është xhoker).</li>' +
+      '<li><b>Hand:</b> pa hapur më parë, shtro të 14 letrat në kombinimet e tua njëherësh (51+ pikë) dhe mbyll: <b>−120</b> (<b>−200</b> me xhoker si letër të fundit). Letra e hapur poshtë pakos merret vetëm për të mbyllur me Hand.</li>' +
+      '<li><b>Ngjyrë:</b> A-2-3…K-A e së njëjtës shenjë (14 letra, pa xhoker): <b>−800</b>.</li></ul>' +
+      '<h3>Pikët e të tjerëve</h3><ul>' +
+      '<li>Kush nuk ka hapur: <b>+100</b> (<b>+200</b> pas një Hand ose Ngjyre).</li>' +
+      '<li>Kush ka hapur: letrat që i mbetën në dorë (xhokeri 25, asi 10, J/Q/K 10, të tjerat sa numri), dyfish pas një Hand ose Ngjyre.</li></ul>',
+    err: {
+      wrongPhase: 'Këtë nuk mund ta bësh tani.', cardNotInHand: 'Kjo letër nuk është në dorën tënde.',
+      notAValidMeld: 'Këto letra nuk bëjnë kombinim.', notEnoughToOpen: 'Të duhen 51 pikë për të hapur.',
+      mustKeepOneCard: 'Mbaj një letër për ta hedhur.', mustOpenFirst: 'Duhet të hapësh më parë.',
+      discardPileEmpty: 'Nuk ka letër të hedhur për të marrë.', discardMustBeInMelds: 'Letra e hedhur duhet të jetë në kombinimet e tua.',
+      noBottomCard: 'Nuk ka letër poshtë pakos.', bottomCardIsNotAHand: 'Letra poshtë pakos merret vetëm për të mbyllur me Hand.',
+      noCardsLeft: 'Nuk ka më letra për të marrë.', badMeldIndex: 'Ky kombinim nuk ekziston.',
+      cardCantBeSold: 'Kjo letër nuk shkon këtu.', cannotTakeJoker: 'Me këto letra nuk mund ta marrësh xhokerin.',
+      illegalDiscard: 'Këtë letër nuk mund ta hedhësh: është xhoker, ose është e shitur (shkon në një kombinim në tavolinë).',
+      noGame: 'Nuk u gjet asnjë lojë me këtë kod.', started: 'Kjo lojë ka filluar tashmë.', full: 'Loja është plot (4 lojtarë).',
+      noName: 'Shkruaj emrin tënd.', notHost: 'Këtë mund ta bëjë vetëm ai që krijoi lojën.', badToken: 'Nuk je më në këtë lojë.',
+      notYourTurn: 'Nuk është radha jote.', notStarted: 'Loja nuk ka filluar ende.', needTwo: 'Duhen të paktën 2 lojtarë për të filluar.',
+      chatEmpty: 'Shkruaj diçka.', chatTooFast: 'Pak më ngadalë me mesazhet.',
+      network: 'Nuk ka lidhje me serverin. Provo përsëri.', generic: 'Ky veprim nuk lejohet.',
+    },
+  },
+  en: {
+    you: 'You', joker: 'Joker', jokerText: 'JOKER', newTag: 'NEW', and: ' and ',
+    tagline: 'The Albanian card game', play: 'PLAY', rules: 'Game rules', language: 'Language',
+    howPlay: 'How do you want to play?',
+    createWithFriends: 'Create a game with friends', createNote: 'You get a code and send it to your friends. 2, 3 or 4 players.',
+    joinWithCode: 'Join a game with a code', joinNote: 'A friend sent you a code.',
+    vsComputer: 'Play against the computer', vsComputerNote: 'Just you and three computer players.',
+    back: 'Back', createTitle: 'Create a game', yourName: 'Your name', namePlaceholder: 'Type your name',
+    creating: 'Creating...', createBtn: 'Create game', joinTitle: 'Join a game', gameCode: 'Game code',
+    codePlaceholder: 'e.g. K7P2', joining: 'Joining...', joinBtn: 'Join', connecting: 'Connecting...',
+    lobby: 'Waiting room', shareBtn: 'Send the link to friends', shareNote: 'Or tell them the code. They press "Join a game with a code".',
+    players: (n) => 'Players (' + n + ' of 4)', youBadge: 'you', offline: 'offline',
+    onlyPeople: 'Only people play: 2, 3 or 4 players.', startWith: (n) => 'Start the game with ' + n + ' players',
+    waitFriend: 'Wait for at least one friend to join.', waitHostStart: (n) => 'Waiting for ' + n + ' to start the game...',
+    leave: 'Leave', reconnecting: 'Connection lost. Reconnecting...', linkCopied: 'Link copied. Send it to your friends!',
+    shareText: (c) => 'Come play Zhol with me! Code: ' + c, typeCode: 'Type the game code.',
+    roundOf: (n, t) => 'Round ' + n + ' of ' + t, codeLabel: (c) => 'Code ' + c,
+    dealer: 'Dealer', opened: 'Opened', computer: 'Computer', computerPlays: 'Computer plays', offlineBadge: 'Offline',
+    letPlayerPlay: 'Player plays again', letComputerPlay: 'Let the computer play', points: (n) => 'Points ' + n,
+    deck: 'Deck', thrown: 'Thrown', underDeck: (c) => 'Under the deck: ' + c,
+    meldPointsOpened: (p) => 'Meld points: ' + p, meldPointsNeed: (p, m) => 'Meld points: ' + p + ' of ' + m + ' needed',
+    findMelds: 'Find melds', makeMeld: 'Make meld', open: 'Open', cancel: 'Cancel', drawDeck: 'Draw from deck',
+    take: (c) => 'Take ' + c, openWith: (c) => 'Open with ' + c, bottomBtn: 'Bottom card (close with a Hand)',
+    layDown: 'Lay down', throwCard: 'Throw card', yourCards: (n) => 'Your cards (' + n + ')',
+    dragTip: 'Drag cards to arrange them', bySuit: 'By suit', byRank: 'By rank',
+    hRoundOver: 'The round is over.', hPlaying: (n, comp) => n + (comp ? ' (computer)' : '') + ' is playing...',
+    hYouStart: 'You start. Throw one card.', hOpenWithDiscard: 'Make melds that use the orange-framed card, then press Open.',
+    hDrawOpened: 'Your turn: draw from the deck or take the thrown card.', hDraw: 'Your turn: draw a card from the deck.',
+    hTapGlowing: 'Tap a glowing meld.', hPlayOpened: 'Lay down melds, sell cards, take jokers, then throw a card.',
+    hPlay: 'Open with melds worth 51 points, or just throw a card.',
+    mPick3: 'Pick at least 3 cards for a meld.', mNotMeld: "These cards don't make a bridge or a set.",
+    mNoMelds: "I can't find any melds in your hand.", mTapOne: 'Tap one card to throw.',
+    mDrawFirst: 'Draw a card first.', mOpenFirstSell: 'You can sell cards and take jokers after you open.',
+    mSelectFirst: 'Select a card, then tap a meld to sell it.', mNoFit: "That doesn't fit this meld.",
+    cStart: (c) => 'Put ' + c + ' at the start', cEnd: (c) => 'Put ' + c + ' at the end', cSell: (c) => 'Sell ' + c + ' here',
+    cJoker: (cs) => 'Take the joker (give ' + cs + ')', chooseTitle: 'What do you want to do?',
+    eDraw: (you, n, c) => (you ? 'You drew ' + c + '.' : n + ' drew a card.'),
+    eTake: (you, n, c) => (you ? 'You took ' : n + ' took ') + c + '.',
+    eTakeOpen: (you, n, c) => (you ? 'You took ' : n + ' took ') + c + ' and opened!',
+    eBottom: (you, n) => (you ? 'You took' : n + ' took') + ' the card under the deck. A Hand!',
+    eLay: (you, n, k) => (you ? 'You laid down ' : n + ' laid down ') + k + (k === 1 ? ' meld.' : ' melds.'),
+    eSell: (you, n, c) => (you ? 'You sold ' : n + ' sold ') + c + '.',
+    eJoker: (you, n) => (you ? 'You took' : n + ' took') + ' a joker!',
+    eThrow: (you, n, c) => (you ? 'You threw ' : n + ' threw ') + c + '.',
+    close: {
+      normal: (you, n) => (you ? 'You closed the game.' : n + ' closed the game.'),
+      normalWithJoker: (you, n) => (you ? 'You closed the game with a joker.' : n + ' closed the game with a joker.'),
+      hand: (you, n) => (you ? 'You closed with a Hand!' : n + ' closed with a Hand!'),
+      handWithJoker: (you, n) => (you ? 'You closed with a Hand and a joker!' : n + ' closed with a Hand and a joker!'),
+      ngjyre: (you, n) => (you ? 'You made a Ngjyrë!' : n + ' made a Ngjyrë!'),
+    },
+    gameOver: 'Game over', roundOver: (n) => 'Round ' + n + ' is over', youWin: 'You win!',
+    tieWith: (names) => 'A tie: you and ' + names, winners: (names, many) => names + (many ? ' win.' : ' wins.'),
+    colRound: 'Round', colTotal: 'Total', lowestWins: 'The lowest total wins.', newGame: 'New game', nextRound: 'Next round',
+    waitHostNext: (n) => 'Waiting for ' + n + ' to continue...', toStart: 'Back to the start',
+    helpTitle: 'How to play', close2: 'Close', leaveGame: 'Leave the game',
+    helpItems: [
+      'You sit at the bottom of the table. Play goes to the right: after you comes the player on your right, then the one across, then the one on your left.',
+      "Each player's melds lie in front of them. The small letter on a joker shows which card it stands for.",
+      'Tap cards to select them. <b>Drag</b> a card left or right to put it where you want. The card you just took has a green border and sits at the right end.',
+      '<b>Find melds</b> fills in the best melds for you. <b>Make meld</b> uses the cards you selected.',
+      'You need <b>51 points</b> to open. <b>Open with ...</b> takes the thrown card and opens with it.',
+      'After you open: select a card and tap a <b>glowing meld</b> to sell it. Select the real card(s) and tap a meld with a joker to take the joker.',
+      'Select one card and press <b>Throw card</b> to end your turn. The last card you throw closes the game.',
+      'After 8 rounds the lowest total wins.',
+    ],
+    chat: 'Chat', chatPlaceholder: 'Write a message...', send: 'Send', chatEmpty: 'No messages yet. Say something!',
+    quick: ['👍', '😂', '😮', 'Bravo!', 'Hurry up!', 'Oh no!'],
+    rulesHTML:
+      '<h3>The basics</h3><ul>' +
+      '<li>Zhol is played by 2 to 4 players with two decks of cards and four jokers (108 cards). A game has 8 rounds. The player with the fewest points at the end wins.</li>' +
+      '<li>Each player gets 14 cards. The player to the right of the dealer gets 15 and starts by throwing one card. Play goes to the right.</li>' +
+      '<li>Before dealing, the player to the left of the dealer cuts the deck and looks at the bottom card of the part he lifted. A joker he keeps. Any other card goes face up under the deck.</li></ul>' +
+      '<h3>Your turn</h3><ul>' +
+      '<li>Draw a card from the deck. Then lay down melds if you can, and throw one card.</li>' +
+      '<li>You may take the card the previous player threw only if you have opened, or if you open with it right away (it must be part of your melds).</li></ul>' +
+      '<h3>Melds</h3><ul>' +
+      '<li><b>Bridge:</b> 3 or more cards in a row of the same suit, e.g. 4♥ 5♥ 6♥. The ace can be low (A-2-3) or high (Q-K-A), but not K-A-2.</li>' +
+      '<li><b>Set:</b> 3 or 4 cards of the same rank in different suits, e.g. Q♥ Q♦ Q♣.</li>' +
+      '<li>A joker can stand for any card. A meld needs at least one real card.</li></ul>' +
+      '<h3>Opening</h3><ul>' +
+      '<li>To open, your first melds must be worth at least <b>51 points</b>. Cards 2–9 count their number; 10, J, Q, K count 10. An ace counts 1 in A-2-3 and 10 in Q-K-A or in a set of aces. A joker counts as the card it stands for.</li>' +
+      '<li>After you open, you can <b>sell</b> cards: add them to any meld on the table.</li>' +
+      '<li>You take a joker from the table by putting the real card in its place (only after you have opened). From a set like K♥ K♦ ★ you need both missing kings.</li>' +
+      '<li><b>E shitur (sold):</b> if you have not opened, you cannot throw a card that fits a meld on the table. You can never throw a joker, except as your last card.</li></ul>' +
+      '<h3>Closing</h3><ul>' +
+      '<li>You close the game when you have laid down 14 cards and throw your 15th: <b>−40</b> points (<b>−80</b> if the last card is a joker).</li>' +
+      '<li><b>Hand:</b> without opening before, lay down all 14 cards in your own melds at once (51+ points) and close: <b>−120</b> (<b>−200</b> with a joker as the last card). The face-up card under the deck can only be taken to close with a Hand.</li>' +
+      '<li><b>Ngjyrë:</b> A-2-3…K-A of one suit (14 cards, no joker): <b>−800</b>.</li></ul>' +
+      '<h3>Points for the others</h3><ul>' +
+      '<li>Who has not opened: <b>+100</b> (<b>+200</b> after a Hand or Ngjyrë).</li>' +
+      '<li>Who has opened: the cards left in their hand (joker 25, ace 10, J/Q/K 10, the others their number), doubled after a Hand or Ngjyrë.</li></ul>',
+    err: {
+      wrongPhase: "You can't do that now.", cardNotInHand: "That card isn't in your hand.",
+      notAValidMeld: "These cards don't make a meld.", notEnoughToOpen: 'You need 51 points to open.',
+      mustKeepOneCard: 'Keep one card to throw.', mustOpenFirst: 'You have to open first.',
+      discardPileEmpty: 'There is no thrown card to take.', discardMustBeInMelds: 'The thrown card must be part of your melds.',
+      noBottomCard: 'There is no card under the deck.', bottomCardIsNotAHand: 'The card under the deck can only be taken to close with a Hand.',
+      noCardsLeft: 'No cards left to draw.', badMeldIndex: "That meld doesn't exist.",
+      cardCantBeSold: "That card doesn't fit there.", cannotTakeJoker: "You can't take that joker with these cards.",
+      illegalDiscard: "You can't throw this card: it is a joker, or it is \"sold\" (it fits a meld on the table).",
+      noGame: 'No game found with this code.', started: 'This game has already started.', full: 'The game is full (4 players).',
+      noName: 'Type your name.', notHost: 'Only the person who created the game can do this.', badToken: "You're no longer in this game.",
+      notYourTurn: "It's not your turn.", notStarted: "The game hasn't started yet.", needTwo: 'You need at least 2 players to start.',
+      chatEmpty: 'Write something.', chatTooFast: 'A bit slower with the messages.',
+      network: 'No connection to the server. Try again.', generic: "That move isn't allowed.",
+    },
+  },
 };
+
+/** The text for a key in the chosen language. Some texts take values: t('players', 3). */
+function t(key) {
+  const lang = (typeof ui !== 'undefined' && ui.lang === 'en') ? 'en' : 'sq';
+  let v = STR[lang][key];
+  if (v === undefined) v = STR.sq[key];
+  if (typeof v === 'function') return v.apply(null, Array.prototype.slice.call(arguments, 1));
+  return v;
+}
+function errText(code, fallback) {
+  const lang = (typeof ui !== 'undefined' && ui.lang === 'en') ? 'en' : 'sq';
+  const d = STR[lang].err;
+  return d[code] || d[fallback || 'generic'];
+}
 
 function describe(ev) {
   const you = ev.seat === A().mySeat();
   const name = esc(A().names()[ev.seat]);
   const c = ev.card ? cardText(ev.card) : '';
   switch (ev.type) {
-    case 'drawFromPile': return you ? 'Ti more ' + c + '.' : name + ' mori një letër.';
-    case 'takeDiscard': return (you ? 'Ti more ' : name + ' mori ') + c + '.';
-    case 'takeDiscardAndOpen': return you ? 'Ti more ' + c + ' dhe hape!' : name + ' mori ' + c + ' dhe hapi!';
-    case 'takeBottomCard': return (you ? 'Ti more' : name + ' mori') + ' letrën poshtë pakos. Dorë!';
-    case 'layDown': return (you ? 'Ti shtrove ' : name + ' shtroi ') + ev.count + (ev.count === 1 ? ' kombinim.' : ' kombinime.');
-    case 'sell': return (you ? 'Ti shite ' : name + ' shiti ') + c + '.';
-    case 'takeJoker': return (you ? 'Ti more' : name + ' mori') + ' një xhoker!';
-    case 'discard': return (you ? 'Ti hodhe ' : name + ' hodhi ') + c + '.';
+    case 'drawFromPile': return t('eDraw', you, name, c);
+    case 'takeDiscard': return t('eTake', you, name, c);
+    case 'takeDiscardAndOpen': return t('eTakeOpen', you, name, c);
+    case 'takeBottomCard': return t('eBottom', you, name);
+    case 'layDown': return t('eLay', you, name, ev.count);
+    case 'sell': return t('eSell', you, name, c);
+    case 'takeJoker': return t('eJoker', you, name);
+    case 'discard': return t('eThrow', you, name, c);
     default: return '';
   }
 }
@@ -1103,6 +1340,9 @@ const ui = {
   name: '', code: '', formError: '', lobbyNote: '',
   selected: new Set(), staged: [], openingWithDiscard: false,
   sortMode: 'suit', order: [], orderKey: null,
+  lang: 'sq', showRules: false,
+  landing: {},                 // cards still in the air: 'card:<id>', 'ref:<id>' (in a meld) or 'discard'
+  fresh: {},                   // meld index -> when it got new cards (it glows for a moment)
   message: '', lastAction: '', newCardId: null, scrollToNew: false,
   canTakeBottom: false, canOpenWithDiscard: false,
   chooser: null, showHelp: false, busy: false,
@@ -1111,6 +1351,7 @@ const ui = {
 try {
   ui.name = localStorage.getItem('zhol.name') || '';
   const sm = localStorage.getItem('zhol.sortMode'); if (sm === 'suit' || sm === 'rank') ui.sortMode = sm;
+  const lg = localStorage.getItem('zhol.lang'); if (lg === 'sq' || lg === 'en') ui.lang = lg;
 } catch (e) { /* storage may be blocked */ }
 function saveLocal(key, value) { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
 
@@ -1118,19 +1359,27 @@ function saveLocal(key, value) { try { if (value === null) localStorage.removeIt
 // Playing against the computer (on this phone only)
 // ============================================================
 
+/** How long a computer player waits before its next move, so you can follow what happened. */
+function pauseAfter(ev) {
+  if (BOT_DELAY === 0 || !ev) return BOT_DELAY;
+  if (ev.type === 'layDown' || ev.type === 'takeDiscardAndOpen') return BOT_DELAY + 1400;
+  if (ev.type === 'sell' || ev.type === 'takeJoker') return BOT_DELAY + 700;
+  return BOT_DELAY;
+}
+
 const solo = {
   match: null, token: 0, seq: 0,
   start() { this.match = new Z.ZholMatch(); this.token++; this.seq = 0; },
   round() { return this.match.round; },
   roundKey() { return this.match.round; },
   mySeat() { return 0; },
-  names() { return SOLO_NAMES; },
+  names() { return [t('you')].concat(SOLO_NAMES.slice(1)); },
   seatInfo(seat) { return { isBot: seat !== 0, connected: true, botPlaying: false }; },
   totals() { return this.match.totals; },
   dealer() { return this.match.dealer; },
   roundsPlayed() { return this.match.roundsPlayed; },
   isHost() { return true; },
-  hostName() { return 'Ti'; },
+  hostName() { return t('you'); },
   perform(seat, move) {
     const r = this.match.round;
     const topBefore = r.discardPile.length ? r.discardPile[r.discardPile.length - 1] : null;
@@ -1140,7 +1389,11 @@ const solo = {
     if (['drawFromPile', 'takeDiscard', 'takeBottomCard'].includes(move.type)) card = r.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;
     else if (move.type === 'takeDiscardAndOpen') card = topBefore;
     else if (move.type === 'discard' || move.type === 'sell') card = move.card;
-    onGameChange({ seq: ++this.seq, seat, type: move.type, card, count: move.groups ? move.groups.length : 0 });
+    else if (move.type === 'takeJoker') card = r.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;
+    const ev = { seq: ++this.seq, seat, type: move.type, card, count: move.groups ? move.groups.length : 0,
+                 meld: move.meld !== undefined ? move.meld : null, cards: move.giving || null };
+    this.lastEvent = ev;
+    onGameChange(ev);
     if (seat === 0) this.scheduleBots();
     return true;
   },
@@ -1157,7 +1410,7 @@ const solo = {
         const fb = Z.botFallbackMove(this.match.round);
         if (fb) this.perform(seat, fb);
       }
-      setTimeout(step, BOT_DELAY);
+      setTimeout(step, pauseAfter(this.lastEvent));
     };
     const r = this.match.round;
     if (r.phase !== 'finished' && r.current !== 0) setTimeout(step, BOT_DELAY);
@@ -1185,7 +1438,7 @@ const online = {
   round() { return this.view; },
   roundKey() { return this.state.code + ':' + this.state.game.roundId; },
   mySeat() { return this.state.game.mySeat; },
-  names() { const g = this.state.game; return g.seats.map((s, i) => (i === g.mySeat ? 'Ti' : s.name)); },
+  names() { const g = this.state.game; return g.seats.map((s, i) => (i === g.mySeat ? t('you') : s.name)); },
   seatInfo(seat) { const s = this.state.game.seats[seat]; return { isBot: s.isBot, connected: s.connected, botPlaying: s.botPlaying }; },
   totals() { return this.state.game.totals; },
   dealer() { return this.state.game.dealer; },
@@ -1248,7 +1501,7 @@ const online = {
       await this.api('/api/check', session);
       setTimeout(() => { if (this.session === session) this.connect(session); }, 2000);
     } catch (e) {
-      if (e.code === 'noGame' || e.code === 'badToken') { this.leaveLocal(); ui.formError = ERR[e.code]; render(); }
+      if (e.code === 'noGame' || e.code === 'badToken') { this.leaveLocal(); ui.formError = errText(e.code); render(); }
       else setTimeout(() => { if (this.session === session) this.checkStillThere(); }, 3000);
     }
   },
@@ -1288,7 +1541,7 @@ const online = {
     return this.api('/api/move', { code: this.session.code, token: this.session.token, move: this.serialize(move) })
       .then(() => true, (e) => e.code || 'generic');
   },
-  nextRound() { this.api('/api/next', this.session).catch((e) => { ui.message = ERR[e.code] || ERR.generic; render(); }); },
+  nextRound() { this.api('/api/next', this.session).catch((e) => { ui.message = errText(e.code, 'generic'); render(); }); },
   takeover(seat, on) { this.api('/api/takeover', { code: this.session.code, token: this.session.token, seat, on }).catch(() => {}); },
 };
 
@@ -1307,6 +1560,7 @@ const seatCount = () => round().players.length;
 const areaOf = (seat) => { const n = seatCount(); return AREAS[n][(seat - mySeat() + n) % n]; };
 
 function resetTurnState() {
+  ui.fresh = {};
   ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; ui.message = ''; ui.chooser = null; ui.newCardId = null;
 }
 
@@ -1378,36 +1632,36 @@ function meldActions(meld, index) {
     if (high) {
       const low = Z.adding(meld, card, false);
       if (low && JSON.stringify(low.positions) !== JSON.stringify(high.positions)) {
-        out.push({ kind: 'sell', label: 'Vendose ' + cardText(card) + ' në fillim', move: { type: 'sell', card, meld: index, atHighEnd: false } });
-        out.push({ kind: 'sell', label: 'Vendose ' + cardText(card) + ' në fund', move: { type: 'sell', card, meld: index, atHighEnd: true } });
+        out.push({ kind: 'sell', label: t('cStart', cardText(card)), move: { type: 'sell', card, meld: index, atHighEnd: false } });
+        out.push({ kind: 'sell', label: t('cEnd', cardText(card)), move: { type: 'sell', card, meld: index, atHighEnd: true } });
       } else {
-        out.push({ kind: 'sell', label: 'Shite ' + cardText(card) + ' këtu', move: { type: 'sell', card, meld: index, atHighEnd: true } });
+        out.push({ kind: 'sell', label: t('cSell', cardText(card)), move: { type: 'sell', card, meld: index, atHighEnd: true } });
       }
     }
   }
   if (Z.takingJoker(meld, sel)) {
-    out.push({ kind: 'joker', label: 'Merr xhokerin (jep ' + sel.map(cardText).join(', ') + ')', move: { type: 'takeJoker', meld: index, giving: sel } });
+    out.push({ kind: 'joker', label: t('cJoker', sel.map(cardText).join(', ')), move: { type: 'takeJoker', meld: index, giving: sel } });
   }
   return out;
 }
 
 function hint() {
   const r = round();
-  if (r.phase === 'finished') return 'Raundi mbaroi.';
+  if (r.phase === 'finished') return t('hRoundOver');
   if (!isMyTurn()) {
     const info = A().seatInfo(r.current);
-    return esc(A().names()[r.current]) + (info.isBot || info.botPlaying ? ' (kompjuteri)' : '') + ' po luan...';
+    return t('hPlaying', esc(A().names()[r.current]), info.isBot || info.botPlaying);
   }
-  if (r.phase === 'firstDiscard') return 'Ti fillon. Hidh një letër.';
+  if (r.phase === 'firstDiscard') return t('hYouStart');
   if (r.phase === 'draw') {
-    if (ui.openingWithDiscard) return 'Bëj kombinime që përdorin letrën me kornizë portokalli, pastaj shtyp Hap.';
-    return me().hasOpened ? 'Radha jote: merr një letër nga pakoja ose letrën e hedhur.' : 'Radha jote: merr një letër nga pakoja.';
+    if (ui.openingWithDiscard) return t('hOpenWithDiscard');
+    return me().hasOpened ? t('hDrawOpened') : t('hDraw');
   }
   if (me().hasOpened) {
-    if (selectedCards().length > 0 && r.table.some((m, i) => meldActions(m, i).length > 0)) return 'Prek një kombinim që ndriçon.';
-    return 'Shtro kombinime, shit letra, merr xhokerë, pastaj hidh një letër.';
+    if (selectedCards().length > 0 && r.table.some((m, i) => meldActions(m, i).length > 0)) return t('hTapGlowing');
+    return t('hPlayOpened');
   }
-  return 'Hap me kombinime prej 51 pikësh, ose thjesht hidh një letër.';
+  return t('hPlay');
 }
 
 // ============================================================
@@ -1415,42 +1669,181 @@ function hint() {
 // ============================================================
 
 const reduceMotion = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+const EASE = 'cubic-bezier(0.22, 0.61, 0.36, 1)';      // starts quick, lands softly
 function rectOf(id) { const el = document.getElementById(id); return el ? el.getBoundingClientRect() : null; }
+
+/** Where things are on the screen right now (taken after every redraw). */
 function snapshot() {
-  if (ui.screen !== 'game') return null;
-  return { deck: rectOf('deck'), discard: rectOf('discard'), seats: round().players.map((_, s) => rectOf(s === mySeat() ? 'hand' : 'seat-' + s)) };
+  if (ui.screen !== 'game' || !round()) return null;
+  const cards = {}, refs = {};
+  document.querySelectorAll('#hand .card[data-card]').forEach((el) => { cards[el.getAttribute('data-card')] = el.getBoundingClientRect(); });
+  document.querySelectorAll('.card[data-ref]').forEach((el) => { refs[el.getAttribute('data-ref')] = el.getBoundingClientRect(); });
+  return {
+    deck: rectOf('deck'), discard: rectOf('discard'), bottom: rectOf('bottom-card'), cards, refs,
+    seats: round().players.map((_, s) => rectOf(s === mySeat() ? 'hand' : 'seat-' + s)),
+  };
 }
-function fly(from, to, card) {
+
+/**
+ * A card glides from one place to another along a soft arc, growing or shrinking to its new size.
+ * The real card at the end (target) is hidden while the card is in the air, then lands with a small bump.
+ */
+function fly(from, to, card, opts) {
+  opts = opts || {};
+  const key = opts.landingKey || null;
   if (reduceMotion || !from || !to || !document.body.animate) return;
+  const w = opts.fromWidth || CARD_PILE;
+  const toW = opts.toWidth || w;
   const holder = document.createElement('div');
-  holder.innerHTML = card ? cardHTML(card, 46) : backHTML(46);
+  holder.innerHTML = card ? cardHTML(card, w) : backHTML(w);
   const el = holder.firstChild;
   el.classList.add('flying');
-  const hw = 46 / 2, hh = 46 * 1.45 / 2;
+  const hw = w / 2, hh = (w * 1.45) / 2;
   const x0 = from.left + from.width / 2 - hw, y0 = from.top + from.height / 2 - hh;
   const x1 = to.left + to.width / 2 - hw, y1 = to.top + to.height / 2 - hh;
-  el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
+  const dx = x1 - x0, dy = y1 - y0;
+  const s1 = toW / w;
+  const lift = Math.min(60, Math.hypot(dx, dy) * 0.18);          // a gentle arc, more for longer trips
+  const turn = dx >= 0 ? 6 : -6;
+  el.style.left = x0 + 'px';
+  el.style.top = y0 + 'px';
   document.body.appendChild(el);
-  const anim = el.animate(
-    [{ transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
-     { transform: 'translate(' + (x1 - x0) + 'px, ' + (y1 - y0) + 'px) scale(0.75)', opacity: 0.35 }],
-    { duration: FLY_MS, easing: 'ease-in-out' });
-  anim.onfinish = () => el.remove();
-  anim.oncancel = () => el.remove();
+  if (key) {
+    ui.landing[key] = (ui.landing[key] || 0) + 1;
+    const now = landingElement(key);
+    if (now) now.classList.add('landing');
+  }
+  const anim = el.animate([
+    { transform: 'translate(0px, 0px) scale(1) rotate(0deg)', offset: 0 },
+    { transform: 'translate(' + dx * 0.5 + 'px, ' + (dy * 0.5 - lift) + 'px) scale(' + ((1 + s1) / 2 * 1.05) + ') rotate(' + turn + 'deg)', offset: 0.5 },
+    { transform: 'translate(' + dx + 'px, ' + dy + 'px) scale(' + s1 + ') rotate(0deg)', offset: 1 },
+  ], { duration: opts.duration || FLY_MS, easing: EASE, delay: opts.delay || 0, fill: 'backwards' });
+  let finished = false;
+  const done = () => {
+    if (finished) return;
+    finished = true;
+    el.remove();
+    if (!key) return;
+    ui.landing[key] -= 1;
+    if (ui.landing[key] > 0) return;
+    delete ui.landing[key];
+    const landed = landingElement(key);                 // the card on the screen now (it may have been redrawn)
+    if (landed) {
+      landed.classList.remove('landing');
+      if (landed.animate) landed.animate([{ transform: 'scale(1.08)' }, { transform: 'scale(1)' }], { duration: 160, easing: 'ease-out' });
+    }
+  };
+  anim.onfinish = done;
+  anim.oncancel = done;
 }
+
+function landingElement(key) {
+  if (key === 'discard') return document.querySelector('#discard .card');
+  if (key.indexOf('ref:') === 0) return document.querySelector('.meld .card[data-ref="' + key.slice(4) + '"]');
+  if (key.indexOf('card:') === 0) return document.querySelector('#hand .card[data-card="' + key.slice(5) + '"]');
+  return null;
+}
+
+/** Shows how a card moved for something that just happened. before = places before it happened. */
 function animateEvent(ev, before) {
   if (!before) return;
   const after = snapshot();
   if (!after) return;
-  const target = after.seats[ev.seat] || before.seats[ev.seat];
-  const showFace = ev.seat === mySeat();
+  const mine = ev.seat === mySeat();
+  const seatBox = after.seats[ev.seat] || before.seats[ev.seat];
+  const handCard = (id) => document.querySelector('#hand .card[data-card="' + id + '"]');
   switch (ev.type) {
-    case 'drawFromPile': fly(before.deck, target, showFace ? ev.card : null); break;
-    case 'takeBottomCard': fly(before.deck, target, ev.card); break;
-    case 'takeDiscard': case 'takeDiscardAndOpen': fly(before.discard, target, ev.card); break;
-    case 'discard': fly(before.seats[ev.seat], after.discard || before.discard, ev.card); break;
+    case 'takeDiscardAndOpen': {
+      const table = round().table;
+      const first = table.length - ev.count;
+      flyIntoMelds(ev, before, table.slice(first).map((m, k) => ({ meld: m, index: first + k, cards: m.cards })));
+      break;
+    }
+    case 'drawFromPile': case 'takeBottomCard': case 'takeDiscard': {
+      const from = ev.type === 'drawFromPile' ? before.deck
+        : ev.type === 'takeBottomCard' ? (before.bottom || before.deck) : before.discard;
+      let to = seatBox, toW = 26, landingKey = null;
+      if (mine && ev.card && ev.type !== 'takeDiscardAndOpen') {
+        const target = handCard(ev.card.id);
+        if (target) { to = target.getBoundingClientRect(); toW = CARD_HAND; landingKey = 'card:' + ev.card.id; }
+      }
+      const face = (mine || ev.type !== 'drawFromPile') ? ev.card : null;
+      fly(from, to, face, { fromWidth: CARD_PILE, toWidth: toW, landingKey });
+      break;
+    }
+    case 'layDown': {
+      const table = round().table;
+      const first = table.length - ev.count;
+      flyIntoMelds(ev, before, table.slice(first).map((m, k) => ({ meld: m, index: first + k, cards: m.cards })));
+      break;
+    }
+    case 'sell': {
+      const index = ev.meld;
+      const meld = round().table[index];
+      if (meld && ev.card) flyIntoMelds(ev, before, [{ meld, index, cards: [ev.card] }]);
+      break;
+    }
+    case 'takeJoker': {
+      const index = ev.meld;
+      const meld = round().table[index];
+      if (meld && ev.cards) flyIntoMelds(ev, before, [{ meld, index, cards: ev.cards }]);
+      if (ev.card && before.refs[ev.card.id]) {                      // the joker goes to the player
+        let to = seatBox, toW = 26, landingKey = null;
+        if (mine) { const target = handCard(ev.card.id); if (target) { to = target.getBoundingClientRect(); toW = CARD_HAND; landingKey = 'card:' + ev.card.id; } }
+        fly(before.refs[ev.card.id], to, ev.card, { fromWidth: CARD_MELD, toWidth: toW, landingKey, delay: 250 });
+      }
+      break;
+    }
+    case 'discard': {
+      let from = before.seats[ev.seat], fromW = 30;
+      if (mine && ev.card && before.cards[ev.card.id]) { from = before.cards[ev.card.id]; fromW = CARD_HAND; }
+      fly(from, after.discard || before.discard, ev.card, { fromWidth: fromW, toWidth: CARD_PILE, landingKey: 'discard' });
+      break;
+    }
     default: break;
   }
+}
+
+/**
+ * Cards fly one after another into melds on the table (laying down, opening, selling, giving cards for a joker).
+ * Your own cards start from where they were in your hand (or in your prepared melds); other players' cards start
+ * at their name. The thrown card you opened with starts from the pile. The meld then glows for a moment.
+ */
+function flyIntoMelds(ev, before, groups) {
+  const mine = ev.seat === mySeat();
+  const fromSeat = before.seats[ev.seat];
+  let k = 0;
+  groups.forEach((g) => {
+    g.cards.forEach((card) => {
+      const target = document.querySelector('.meld[data-index="' + g.index + '"] .card[data-ref="' + card.id + '"]');
+      if (!target) return;
+      let from = fromSeat, fromW = 26;
+      if (ev.type === 'takeDiscardAndOpen' && ev.card && card.id === ev.card.id) { from = before.discard; fromW = CARD_PILE; }
+      else if (mine && before.cards[card.id]) { from = before.cards[card.id]; fromW = CARD_HAND; }
+      else if (mine && before.refs[card.id]) { from = before.refs[card.id]; fromW = CARD_STAGED; }
+      fly(from, target.getBoundingClientRect(), card, { fromWidth: fromW, toWidth: CARD_MELD, landingKey: 'ref:' + card.id, delay: k * STAGGER_MS, duration: 600 });
+      k += 1;
+    });
+    ui.fresh[g.index] = Date.now() + Math.max(0, k - 1) * STAGGER_MS + 450;    // glow when the cards arrive
+  });
+  if (!reduceMotion) setTimeout(() => { if (ui.screen === 'game') render(); }, Math.max(0, k - 1) * STAGGER_MS + 700 + FRESH_MS);
+}
+
+/** After you drop a dragged card, every card slides smoothly to its new place. */
+function slideHand(oldRects, droppedId, ghostRect) {
+  if (reduceMotion) return;
+  document.querySelectorAll('#hand .card[data-card]').forEach((el) => {
+    if (!el.animate) return;
+    const id = el.getAttribute('data-card');
+    const was = id === String(droppedId) && ghostRect ? ghostRect : oldRects[id];
+    if (!was) return;
+    const now = el.getBoundingClientRect();
+    const dx = was.left - now.left, dy = was.top - now.top;
+    if (Math.abs(dx) < 1 && Math.abs(dy) < 1) return;
+    const lift = el.classList.contains('sel') ? ' translateY(-14px)' : '';
+    el.animate([{ transform: 'translate(' + dx + 'px, ' + dy + 'px)' + lift }, { transform: 'translate(0px, 0px)' + lift }],
+      { duration: id === String(droppedId) ? 240 : 200, easing: EASE });
+  });
 }
 
 /** Called after anything changed in the game (your move, a friend's move, a bot's move). */
@@ -1485,7 +1878,7 @@ function perform(move) {
   if (ui.busy) return;
   const done = (res) => {
     ui.busy = false;
-    if (res !== true) { ui.message = ERR[res] || ERR.generic; render(); return; }
+    if (res !== true) { ui.message = errText(res, 'generic'); render(); return; }
     ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; ui.message = ''; ui.chooser = null;
     render();
   };
@@ -1496,8 +1889,8 @@ function perform(move) {
 function toggleCard(id) { if (ui.selected.has(id)) ui.selected.delete(id); else ui.selected.add(id); ui.message = ''; render(); }
 function makeMeld() {
   const cards = selectedCards();
-  if (cards.length < 3) { ui.message = 'Zgjidh të paktën 3 letra për një kombinim.'; render(); return; }
-  if (!Z.bestMeld(cards)) { ui.message = 'Këto letra nuk bëjnë urë ose grup.'; render(); return; }
+  if (cards.length < 3) { ui.message = t('mPick3'); render(); return; }
+  if (!Z.bestMeld(cards)) { ui.message = t('mNotMeld'); render(); return; }
   ui.staged.push(cards); ui.selected = new Set(); ui.message = ''; render();
 }
 function autoMeld() {
@@ -1505,7 +1898,7 @@ function autoMeld() {
   let must;
   if (ui.openingWithDiscard && topDiscard()) { must = topDiscard(); hand.push(must); }
   const plan = Z.bestOpening(hand, must);
-  if (!plan || plan.melds.length === 0) { ui.message = 'Nuk gjej asnjë kombinim në dorën tënde.'; render(); return; }
+  if (!plan || plan.melds.length === 0) { ui.message = t('mNoMelds'); render(); return; }
   ui.staged = plan.melds.map((m) => m.cards.slice()); ui.selected = new Set(); ui.message = ''; render();
 }
 function layDownAction() {
@@ -1514,7 +1907,7 @@ function layDownAction() {
 }
 function throwSelected() {
   const cards = selectedCards();
-  if (cards.length !== 1) { ui.message = 'Prek një letër për ta hedhur.'; render(); return; }
+  if (cards.length !== 1) { ui.message = t('mTapOne'); render(); return; }
   perform({ type: 'discard', card: cards[0] });
 }
 function tapMeld(index) {
@@ -1523,10 +1916,10 @@ function tapMeld(index) {
   const options = meldActions(meld, index);
   if (options.length === 1) { perform(options[0].move); return; }
   if (options.length > 1) { ui.chooser = { options }; render(); return; }
-  if (round().phase !== 'play') ui.message = 'Merr një letër më parë.';
-  else if (!me().hasOpened) ui.message = 'Mund të shesësh letra dhe të marrësh xhokerë pasi të hapësh.';
-  else if (selectedCards().length === 0) ui.message = 'Zgjidh një letër, pastaj prek një kombinim për ta shitur.';
-  else ui.message = 'Kjo nuk shkon në këtë kombinim.';
+  if (round().phase !== 'play') ui.message = t('mDrawFirst');
+  else if (!me().hasOpened) ui.message = t('mOpenFirstSell');
+  else if (selectedCards().length === 0) ui.message = t('mSelectFirst');
+  else ui.message = t('mNoFit');
   render();
 }
 
@@ -1545,7 +1938,7 @@ function startSolo() {
 
 async function createGame() {
   const name = ui.name.trim();
-  if (!name) { ui.formError = ERR.noName; render(); return; }
+  if (!name) { ui.formError = errText('noName'); render(); return; }
   saveLocal('zhol.name', name);
   ui.formError = ''; ui.busy = true; render();
   try {
@@ -1554,13 +1947,13 @@ async function createGame() {
     ui.mode = 'online'; ui.screen = 'lobby'; ui.lobbyNote = '';
     online.connect({ code: r.code, token: r.token });
     render();
-  } catch (e) { ui.busy = false; ui.formError = ERR[e.code] || ERR.network; render(); }
+  } catch (e) { ui.busy = false; ui.formError = errText(e.code, 'network'); render(); }
 }
 
 async function joinGame() {
   const name = ui.name.trim(), code = ui.code.trim().toUpperCase();
-  if (!code) { ui.formError = 'Shkruaj kodin e lojës.'; render(); return; }
-  if (!name) { ui.formError = ERR.noName; render(); return; }
+  if (!code) { ui.formError = t('typeCode'); render(); return; }
+  if (!name) { ui.formError = errText('noName'); render(); return; }
   saveLocal('zhol.name', name);
   ui.formError = ''; ui.busy = true; render();
   try {
@@ -1569,11 +1962,11 @@ async function joinGame() {
     ui.mode = 'online'; ui.screen = 'lobby'; ui.lobbyNote = '';
     online.connect({ code: r.code, token: r.token });
     render();
-  } catch (e) { ui.busy = false; ui.formError = ERR[e.code] || ERR.network; render(); }
+  } catch (e) { ui.busy = false; ui.formError = errText(e.code, 'network'); render(); }
 }
 
 async function startOnline() {
-  try { await online.api('/api/start', online.session); } catch (e) { ui.lobbyNote = ERR[e.code] || ERR.network; render(); }
+  try { await online.api('/api/start', online.session); } catch (e) { ui.lobbyNote = errText(e.code, 'network'); render(); }
 }
 
 async function leaveLobby() {
@@ -1592,10 +1985,10 @@ function goHome() {
 
 function shareLink() {
   const link = location.origin + location.pathname + '?kod=' + online.session.code;
-  const text = 'Eja luaj Zhol me mua! Kodi: ' + online.session.code;
+  const text = t('shareText', online.session.code);
   if (navigator.share) { navigator.share({ title: 'Zhol', text, url: link }).catch(() => {}); return; }
   if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(text + ' ' + link).then(() => { ui.lobbyNote = 'Lidhja u kopjua. Dërgoja shokëve!'; render(); }, () => { ui.lobbyNote = link; render(); });
+    navigator.clipboard.writeText(text + ' ' + link).then(() => { ui.lobbyNote = t('linkCopied'); render(); }, () => { ui.lobbyNote = link; render(); });
     return;
   }
   ui.lobbyNote = link; render();
@@ -1610,56 +2003,56 @@ function btn(label, action, color, disabled, extra) {
 }
 
 function homeHTML() {
-  return '<div class="screen home"><div class="logo">Zhol</div><div class="tagline">Loja shqiptare me letra</div>' +
+  return '<div class="screen home">' + langSwitchHTML() + '<div class="logo">Zhol</div><div class="tagline">' + t('tagline') + '</div>' +
     '<div class="suits-row">♥' + TEXT_STYLE + ' ♠' + TEXT_STYLE + ' ♦' + TEXT_STYLE + ' ♣' + TEXT_STYLE + '</div>' +
-    btn('LUAJ', 'menu', 'yellow big-btn') +
+    btn(t('play'), 'menu', 'yellow big-btn') +
+    btn(t('rules'), 'rules', 'gray') +
     (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') + '</div>';
 }
 
 function menuHTML() {
-  return '<div class="screen"><h1>Si do të luash?</h1>' +
-    btn('Krijo një lojë me shokët', 'toCreate', 'yellow big-btn') +
-    '<p class="muted">Ti merr një kod dhe ua dërgon shokëve. Luani 2, 3 ose 4 veta.</p>' +
-    btn('Hyr në një lojë me kod', 'toJoin', 'orange big-btn') +
-    '<p class="muted">Një shok të ka dërguar një kod.</p>' +
-    btn('Luaj kundër kompjuterit', 'solo', 'green big-btn') +
-    '<p class="muted">Vetëm ti dhe tre lojtarë të kompjuterit.</p>' +
-    btn('Kthehu', 'home', 'gray') + '</div>';
+  return '<div class="screen"><h1>' + t('howPlay') + '</h1>' +
+    btn(t('createWithFriends'), 'toCreate', 'yellow big-btn') +
+    '<p class="muted">' + t('createNote') + '</p>' +
+    btn(t('joinWithCode'), 'toJoin', 'orange big-btn') +
+    '<p class="muted">' + t('joinNote') + '</p>' +
+    btn(t('vsComputer'), 'solo', 'green big-btn') +
+    '<p class="muted">' + t('vsComputerNote') + '</p>' +
+    btn(t('rules'), 'rules', 'gray') + btn(t('back'), 'home', 'gray') + '</div>';
 }
 
 function createHTML() {
-  return '<div class="screen"><h1>Krijo një lojë</h1><label>Emri yt<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="Shkruaj emrin"></label>' +
+  return '<div class="screen"><h1>' + t('createTitle') + '</h1><label>' + t('yourName') + '<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="' + t('namePlaceholder') + '"></label>' +
     (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') +
-    btn(ui.busy ? 'Duke krijuar...' : 'Krijo lojën', 'create', 'yellow big-btn', ui.busy) + btn('Kthehu', 'menu', 'gray') + '</div>';
+    btn(ui.busy ? t('creating') : t('createBtn'), 'create', 'yellow big-btn', ui.busy) + btn(t('back'), 'menu', 'gray') + '</div>';
 }
 
 function joinHTML() {
-  return '<div class="screen"><h1>Hyr në një lojë</h1>' +
-    '<label>Kodi i lojës<input class="field code-field" data-field="code" maxlength="4" autocapitalize="characters" autocomplete="off" value="' + esc(ui.code) + '" placeholder="p.sh. K7P2"></label>' +
-    '<label>Emri yt<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="Shkruaj emrin"></label>' +
+  return '<div class="screen"><h1>' + t('joinTitle') + '</h1>' +
+    '<label>' + t('gameCode') + '<input class="field code-field" data-field="code" maxlength="4" autocapitalize="characters" autocomplete="off" value="' + esc(ui.code) + '" placeholder="' + t('codePlaceholder') + '"></label>' +
+    '<label>' + t('yourName') + '<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="' + t('namePlaceholder') + '"></label>' +
     (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') +
-    btn(ui.busy ? 'Duke hyrë...' : 'Hyr', 'join', 'yellow big-btn', ui.busy) + btn('Kthehu', 'menu', 'gray') + '</div>';
+    btn(ui.busy ? t('joining') : t('joinBtn'), 'join', 'yellow big-btn', ui.busy) + btn(t('back'), 'menu', 'gray') + '</div>';
 }
 
 function lobbyHTML() {
   const s = online.state;
-  if (!s) return '<div class="screen"><h1>Duke u lidhur...</h1>' + btn('Kthehu', 'leaveLobby', 'gray') + '</div>';
-  let html = '<div class="screen lobby"><div class="lobby-top"><h1>Dhoma e pritjes</h1>' + chatButtonHTML() + '</div><div class="code-box"><span>Kodi i lojës</span><b>' + esc(s.code) + '</b></div>';
-  if (s.you.isHost) html += btn('Dërgo lidhjen shokëve', 'share', 'orange big-btn') + '<p class="muted">Ose thuaju kodin. Ata shtypin "Hyr në një lojë me kod".</p>';
-  html += '<h2>Lojtarët (' + s.players.length + ' nga 4)</h2><ul class="player-list">';
+  if (!s) return '<div class="screen"><h1>' + t('connecting') + '</h1>' + btn(t('back'), 'leaveLobby', 'gray') + '</div>';
+  let html = '<div class="screen lobby"><div class="lobby-top"><h1>' + t('lobby') + '</h1>' + chatButtonHTML() + '</div><div class="code-box"><span>' + t('gameCode') + '</span><b>' + esc(s.code) + '</b></div>';
+  if (s.you.isHost) html += btn(t('shareBtn'), 'share', 'orange big-btn') + '<p class="muted">' + t('shareNote') + '</p>';
+  html += '<h2>' + t('players', s.players.length) + '</h2><ul class="player-list">';
   s.players.forEach((p) => {
-    html += '<li>' + (p.isHost ? '👑 ' : '') + '<b>' + esc(p.name) + '</b>' + (p.id === s.you.id ? ' <span class="badge">ti</span>' : '') +
-      (p.connected ? '' : ' <span class="badge off">jo në linjë</span>') + '</li>';
+    html += '<li>' + (p.isHost ? '👑 ' : '') + '<b>' + esc(p.name) + '</b>' + (p.id === s.you.id ? ' <span class="badge">' + t('youBadge') + '</span>' : '') +
+      (p.connected ? '' : ' <span class="badge off">' + t('offline') + '</span>') + '</li>';
   });
-  html += '</ul><p class="muted">Luajnë vetëm njerëz: 2, 3 ose 4 veta.</p>';
+  html += '</ul><p class="muted">' + t('onlyPeople') + '</p>';
   if (ui.lobbyNote) html += '<p class="warn">' + esc(ui.lobbyNote) + '</p>';
   if (s.you.isHost) {
-    html += btn('Fillo lojën me ' + s.players.length + ' lojtarë', 'startOnline', 'yellow big-btn', s.players.length < 2);
-    if (s.players.length < 2) html += '<p class="muted">Prit që të hyjë të paktën një shok.</p>';
-  }
-  else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' ta fillojë lojën...</p>';
-  html += btn('Dil', 'leaveLobby', 'gray');
-  if (!online.connected) html += '<p class="warn">Lidhja u ndërpre. Po lidhem përsëri...</p>';
+    html += btn(t('startWith', s.players.length), 'startOnline', 'yellow big-btn', s.players.length < 2);
+    if (s.players.length < 2) html += '<p class="muted">' + t('waitFriend') + '</p>';
+  } else html += '<p class="waiting">' + t('waitHostStart', esc(online.hostName())) + '</p>';
+  html += btn(t('rules'), 'rules', 'gray') + btn(t('leave'), 'leaveLobby', 'gray');
+  if (!online.connected) html += '<p class="warn">' + t('reconnecting') + '</p>';
   return html + '</div>';
 }
 
@@ -1672,18 +2065,20 @@ function cardHTML(card, w, opts) {
   if (opts.selected) cls.push('sel');
   if (opts.highlight) cls.push('hi');
   if (opts.isNew) cls.push('new');
+  if (opts.landing) cls.push('landing');
   if (w < 34) cls.push('small');
   let inner;
   if (Z.isJoker(card)) {
-    inner = '<span class="jk-star">★</span>' + (w < 34 ? (opts.stands ? '<span class="jk-stand">' + opts.stands + '</span>' : '') : '<span class="jk-text">XHOKER</span>');
+    inner = '<span class="jk-star">★</span>' + (w < 34 ? (opts.stands ? '<span class="jk-stand">' + opts.stands + '</span>' : '') : '<span class="jk-text">' + t('jokerText') + '</span>');
   } else {
     const s = SUIT_SYMBOL[card.suit] + TEXT_STYLE;
     inner = w < 34
       ? '<span class="r">' + rankText(card.rank) + '</span><span class="s">' + s + '</span>'
       : '<span class="big-suit">' + s + '</span><span class="idx">' + rankText(card.rank) + '<br>' + s + '</span>';
   }
-  if (opts.isNew) inner += '<span class="new-tag">E RE</span>';
-  const attrs = opts.tap ? ' data-action="toggle" data-card="' + card.id + '"' : '';
+  if (opts.isNew) inner += '<span class="new-tag">' + t('newTag') + '</span>';
+  let attrs = opts.tap ? ' data-action="toggle" data-card="' + card.id + '"' : '';
+  if (opts.ref) attrs += ' data-ref="' + card.id + '"';
   return '<div class="' + cls.join(' ') + '" style="--w:' + w + 'px"' + attrs + '>' + inner + '</div>';
 }
 function backHTML(w, count) {
@@ -1693,19 +2088,23 @@ function emptySlotHTML(w) { return '<div class="card empty" style="--w:' + w + '
 
 function headerHTML() {
   const roundNo = Math.min(A().roundsPlayed() + 1, Z.TOTAL_ROUNDS);
-  return '<div class="header"><b class="title">Zhol</b><span>Raundi ' + roundNo + ' nga ' + Z.TOTAL_ROUNDS + '</span>' +
-    (ui.mode === 'online' ? '<span class="small-text">Kodi ' + esc(online.session.code) + '</span>' + chatButtonHTML() : '') +
-    '<button class="help-btn" data-action="help" aria-label="Ndihmë">?</button></div>';
+  return '<div class="header"><b class="title">Zhol</b><span>' + t('roundOf', roundNo, Z.TOTAL_ROUNDS) + '</span>' +
+    (ui.mode === 'online' ? '<span class="small-text">' + t('codeLabel', esc(online.session.code)) + '</span>' + chatButtonHTML() : '') +
+    '<button class="help-btn" data-action="help" aria-label="?">?</button></div>';
 }
 
 function meldHTML(meld, index) {
   const options = meldActions(meld, index);
   const glow = options.some((o) => o.kind === 'joker') ? ' can-joker' : options.length ? ' can-sell' : '';
-  let html = '<div class="meld' + glow + '" data-action="meld" data-index="' + index + '">';
+  // a meld that just got new cards glows for a moment (the glow keeps going smoothly through redraws)
+  let fresh = '', freshStyle = '';
+  const since = ui.fresh[index] !== undefined ? Date.now() - ui.fresh[index] : null;
+  if (since !== null && since < FRESH_MS) { fresh = ' fresh'; freshStyle = ' style="animation-delay:' + (-since) + 'ms"'; }
+  let html = '<div class="meld' + glow + fresh + '"' + freshStyle + ' data-action="meld" data-index="' + index + '">';
   meld.cards.forEach((card, pos) => {
     let stands = null;
     if (Z.isJoker(card) && meld.kind === 'run' && pos < meld.positions.length) { const place = meld.positions[pos]; stands = rankText(place === 14 ? 1 : place); }
-    html += cardHTML(card, 28, { stands });
+    html += cardHTML(card, CARD_MELD, { stands, ref: true, landing: !!ui.landing['ref:' + card.id] });
   });
   return html + '</div>';
 }
@@ -1715,12 +2114,12 @@ function plateHTML(seat) {
   const info = A().seatInfo(seat);
   const turn = r.phase !== 'finished' && r.current === seat;
   let badges = '';
-  if (A().dealer() === seat) badges += '<span class="badge">Ndarësi</span>';
-  if (p.hasOpened) badges += '<span class="badge open">Hapur</span>';
+  if (A().dealer() === seat) badges += '<span class="badge">' + t('dealer') + '</span>';
+  if (p.hasOpened) badges += '<span class="badge open">' + t('opened') + '</span>';
   if (ui.mode === 'online' && seat !== mySeat()) {
-    if (info.isBot) badges += '<span class="badge">Kompjuter</span>';
-    else if (info.botPlaying) badges += '<span class="badge off">Luan kompjuteri</span>';
-    else if (!info.connected) badges += '<span class="badge off">Jo në linjë</span>';
+    if (info.isBot) badges += '<span class="badge">' + t('computer') + '</span>';
+    else if (info.botPlaying) badges += '<span class="badge off">' + t('computerPlays') + '</span>';
+    else if (!info.connected) badges += '<span class="badge off">' + t('offlineBadge') + '</span>';
   }
   let fan = '';
   if (seat !== mySeat()) {
@@ -1730,11 +2129,11 @@ function plateHTML(seat) {
   }
   let takeover = '';
   if (ui.mode === 'online' && online.isHost() && seat !== mySeat() && !info.isBot && (!info.connected || info.botPlaying)) {
-    takeover = info.botPlaying ? '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="0">Lojtari luan vetë</button>'
-                               : '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="1">Lëre kompjuterin të luajë</button>';
+    takeover = info.botPlaying ? '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="0">' + t('letPlayerPlay') + '</button>'
+                               : '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="1">' + t('letComputerPlay') + '</button>';
   }
   return '<div class="plate' + (turn ? ' turn' : '') + '" id="seat-' + seat + '"><div class="plate-name"><b>' + esc(A().names()[seat]) + '</b>' + badges + '</div>' +
-    fan + '<div class="plate-score">Pikët ' + A().totals()[seat] + '</div>' + takeover + '</div>';
+    fan + '<div class="plate-score">' + t('points', A().totals()[seat]) + '</div>' + takeover + '</div>';
 }
 
 function zoneHTML(seat) {
@@ -1746,13 +2145,13 @@ function zoneHTML(seat) {
 function centerHTML() {
   const r = round(), top = topDiscard();
   let deck = '<div class="deck" id="deck">';
-  if (r.bottomCard) deck += '<div class="bottom-card">' + cardHTML(r.bottomCard, 38) + '</div>';
-  deck += r.drawPile.length ? '<div class="deck-stack">' + backHTML(46, r.drawPile.length) + '</div>' : emptySlotHTML(46);
+  if (r.bottomCard) deck += '<div class="bottom-card" id="bottom-card">' + cardHTML(r.bottomCard, CARD_BOTTOM) + '</div>';
+  deck += r.drawPile.length ? '<div class="deck-stack">' + backHTML(CARD_PILE, r.drawPile.length) + '</div>' : emptySlotHTML(CARD_PILE);
   deck += '</div>';
   return '<div class="center"><div class="center-piles">' + deck +
-    '<div class="thrown" id="discard">' + (top ? cardHTML(top, 46) : emptySlotHTML(46)) + '</div></div>' +
-    '<div class="center-labels"><span>Pakoja</span><span>E hedhur</span></div>' +
-    (r.bottomCard ? '<div class="center-note">Poshtë pakos: ' + cardText(r.bottomCard) + '</div>' : '') + '</div>';
+    '<div class="thrown" id="discard">' + (top ? cardHTML(top, CARD_PILE, { landing: !!ui.landing.discard }) : emptySlotHTML(CARD_PILE)) + '</div></div>' +
+    '<div class="center-labels"><span>' + t('deck') + '</span><span>' + t('thrown') + '</span></div>' +
+    (r.bottomCard ? '<div class="center-note">' + t('underDeck', cardText(r.bottomCard)) + '</div>' : '') + '</div>';
 }
 
 function tableHTML() {
@@ -1763,7 +2162,7 @@ function statusHTML() {
   let html = '<div class="status"><b>' + hint() + '</b>';
   if (ui.message) html += '<b class="warn">' + ui.message + '</b>';
   else if (ui.lastAction) html += '<span class="muted">' + ui.lastAction + '</span>';
-  if (ui.mode === 'online' && !online.connected) html += '<b class="warn">Lidhja u ndërpre. Po lidhem përsëri...</b>';
+  if (ui.mode === 'online' && !online.connected) html += '<b class="warn">' + t('reconnecting') + '</b>';
   return html + '</div>';
 }
 
@@ -1771,10 +2170,10 @@ function stagedHTML() {
   if (ui.staged.length === 0) return '';
   let html = '<div class="staged">';
   ui.staged.forEach((group, i) => {
-    html += '<div class="staged-row"><div class="meld">' + group.map((c) => cardHTML(c, 26)).join('') + '</div><b>' + meldPoints(group) +
+    html += '<div class="staged-row"><div class="meld">' + group.map((c) => cardHTML(c, CARD_STAGED, { ref: true })).join('') + '</div><b>' + meldPoints(group) +
       '</b><button class="mini" data-action="unstage" data-index="' + i + '">✕</button></div>';
   });
-  html += '<b class="warn">Pikët e kombinimeve: ' + stagedPoints() + (me().hasOpened ? '' : ' nga ' + Z.OPENING_MINIMUM + ' që duhen') + '</b></div>';
+  html += '<b class="warn">' + (me().hasOpened ? t('meldPointsOpened', stagedPoints()) : t('meldPointsNeed', stagedPoints(), Z.OPENING_MINIMUM)) + '</b></div>';
   return html;
 }
 
@@ -1784,37 +2183,38 @@ function actionsHTML() {
   let html = '<div class="actions">';
   if (r.phase === 'draw') {
     if (ui.openingWithDiscard) {
-      html += btn('Gjej kombinimet', 'auto', 'green') + btn('Bëj kombinim', 'makeMeld', 'yellow', selectedCards().length < 3) +
-              btn('Hap', 'layDown', 'orange', !canLayDown() || ui.busy) + btn('Anulo', 'cancelOpen', 'gray');
+      html += btn(t('findMelds'), 'auto', 'green') + btn(t('makeMeld'), 'makeMeld', 'yellow', selectedCards().length < 3) +
+              btn(t('open'), 'layDown', 'orange', !canLayDown() || ui.busy) + btn(t('cancel'), 'cancelOpen', 'gray');
     } else {
-      html += btn('Merr nga pakoja', 'draw', 'yellow', ui.busy);
+      html += btn(t('drawDeck'), 'draw', 'yellow', ui.busy);
       const top = topDiscard();
       if (top) {
-        html += me().hasOpened ? btn('Merr ' + cardText(top), 'takeDiscard', 'orange', ui.busy)
-                               : btn('Hapu me ' + cardText(top), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
+        html += me().hasOpened ? btn(t('take', cardText(top)), 'takeDiscard', 'orange', ui.busy)
+                               : btn(t('openWith', cardText(top)), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
       }
-      if (!me().hasOpened && r.bottomCard) html += btn('Letra poshtë (Mbylle me Hand)', 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
+      if (!me().hasOpened && r.bottomCard) html += btn(t('bottomBtn'), 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
     }
   } else {
     if (r.phase === 'play') {
-      html += btn('Gjej kombinimet', 'auto', 'green') + btn('Bëj kombinim', 'makeMeld', 'yellow', selectedCards().length < 3) +
-              btn(me().hasOpened ? 'Shtro' : 'Hap', 'layDown', 'orange', !canLayDown() || ui.busy);
+      html += btn(t('findMelds'), 'auto', 'green') + btn(t('makeMeld'), 'makeMeld', 'yellow', selectedCards().length < 3) +
+              btn(me().hasOpened ? t('layDown') : t('open'), 'layDown', 'orange', !canLayDown() || ui.busy);
     }
-    html += btn('Hidh letrën', 'throw', 'red', selectedCards().length !== 1 || ui.busy);
+    html += btn(t('throwCard'), 'throw', 'red', selectedCards().length !== 1 || ui.busy);
   }
   return html + '</div>';
 }
 
 function handHTML() {
   const cards = availableHand();
-  let html = '<div class="hand-box"><div class="hand-head"><span>Letrat e tua (' + cards.length + ')</span>' +
-    '<span class="drag-tip">Tërhiqi letrat për t\'i renditur</span><span><button class="link" data-action="sortSuit">Sipas shenjës</button>' +
-    '<button class="link" data-action="sortRank">Sipas numrit</button></span></div><div class="hand" id="hand">';
+  let html = '<div class="hand-box"><div class="hand-head"><span>' + t('yourCards', cards.length) + '</span>' +
+    '<span class="drag-tip">' + t('dragTip') + '</span><span><button class="link" data-action="sortSuit">' + t('bySuit') + '</button>' +
+    '<button class="link" data-action="sortRank">' + t('byRank') + '</button></span></div><div class="hand" id="hand">';
   cards.forEach((card) => {
-    html += cardHTML(card, 60, {
+    html += cardHTML(card, CARD_HAND, {
       selected: ui.selected.has(card.id),
       highlight: ui.openingWithDiscard && topDiscard() && card.id === topDiscard().id,
       isNew: card.id === ui.newCardId,
+      landing: !!ui.landing['card:' + card.id],
       tap: true,
     });
   });
@@ -1822,16 +2222,8 @@ function handHTML() {
 }
 
 function closeText(result) {
-  const you = result.closer === mySeat();
-  const n = esc(A().names()[result.closer]);
-  switch (result.closeType) {
-    case 'normal': return you ? 'Ti e mbylle lojën.' : n + ' e mbylli lojën.';
-    case 'normalWithJoker': return you ? 'Ti e mbylle lojën me xhoker.' : n + ' e mbylli lojën me xhoker.';
-    case 'hand': return you ? 'Ti e mbylle me Dorë!' : n + ' e mbylli me Dorë!';
-    case 'handWithJoker': return you ? 'Ti e mbylle me Dorë dhe xhoker!' : n + ' e mbylli me Dorë dhe xhoker!';
-    case 'ngjyre': return you ? 'Ti bëre Ngjyrë!' : n + ' bëri Ngjyrë!';
-    default: return '';
-  }
+  const f = (STR[ui.lang] || STR.sq).close[result.closeType];
+  return f ? f(result.closer === mySeat(), esc(A().names()[result.closer])) : '';
 }
 
 function resultHTML() {
@@ -1840,51 +2232,59 @@ function resultHTML() {
   const result = r.result;
   const played = A().roundsPlayed();
   const over = played + 1 >= Z.TOTAL_ROUNDS;
-  const totals = A().totals().map((t, s) => t + result.scores[s]);
+  const totals = A().totals().map((tt, s) => tt + result.scores[s]);
   const names = A().names();
   let winner = '';
   if (over) {
     const lowest = Math.min.apply(null, totals);
-    const leaders = totals.map((t, i) => (t === lowest ? i : -1)).filter((i) => i >= 0);
+    const leaders = totals.map((tt, i) => (tt === lowest ? i : -1)).filter((i) => i >= 0);
     const me0 = mySeat();
-    winner = leaders.length === 1 && leaders[0] === me0 ? 'Ti fitove!'
-      : leaders.includes(me0) ? 'Barazim: Ti dhe ' + leaders.filter((i) => i !== me0).map((i) => esc(names[i])).join(' dhe ')
-      : leaders.map((i) => esc(names[i])).join(' dhe ') + (leaders.length > 1 ? ' fituan.' : ' fitoi.');
+    winner = leaders.length === 1 && leaders[0] === me0 ? t('youWin')
+      : leaders.includes(me0) ? t('tieWith', leaders.filter((i) => i !== me0).map((i) => esc(names[i])).join(t('and')))
+      : t('winners', leaders.map((i) => esc(names[i])).join(t('and')), leaders.length > 1);
   }
-  let html = '<div class="overlay"><div class="dialog"><h2>' + (over ? 'Loja mbaroi' : 'Raundi ' + (played + 1) + ' mbaroi') + '</h2>';
+  let html = '<div class="overlay"><div class="dialog"><h2>' + (over ? t('gameOver') : t('roundOver', played + 1)) + '</h2>';
   html += over ? '<p class="big">' + winner + '</p><p>' + closeText(result) + '</p>' : '<p>' + closeText(result) + '</p>';
-  html += '<table><tr><th></th><th>Raundi</th><th>Totali</th></tr>';
+  html += '<table><tr><th></th><th>' + t('colRound') + '</th><th>' + t('colTotal') + '</th></tr>';
   for (let s = 0; s < names.length; s++) html += '<tr><td>' + esc(names[s]) + '</td><td>' + result.scores[s] + '</td><td>' + totals[s] + '</td></tr>';
-  html += '</table><p class="muted">Fiton totali më i ulët.</p>';
-  if (A().isHost()) html += btn(over ? 'Lojë e re' : 'Raundi tjetër', 'nextRound', 'yellow');
-  else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' të vazhdojë...</p>';
-  if (over) html += '<div style="height:8px"></div>' + btn('Kthehu në fillim', 'goHome', 'gray');
+  html += '</table><p class="muted">' + t('lowestWins') + '</p>';
+  if (A().isHost()) html += btn(over ? t('newGame') : t('nextRound'), 'nextRound', 'yellow');
+  else html += '<p class="waiting">' + t('waitHostNext', esc(online.hostName())) + '</p>';
+  if (over) html += '<div style="height:8px"></div>' + btn(t('toStart'), 'goHome', 'gray');
   return html + '</div></div>';
 }
 
 function chooserHTML() {
   if (!ui.chooser) return '';
-  let html = '<div class="overlay"><div class="dialog"><h2>Çfarë do të bësh?</h2><div class="choices">';
+  let html = '<div class="overlay"><div class="dialog"><h2>' + t('chooseTitle') + '</h2><div class="choices">';
   ui.chooser.options.forEach((o, i) => { html += btn(o.label, 'choose', o.kind === 'joker' ? 'green' : 'orange', false, ' data-option="' + i + '"'); });
-  return html + btn('Anulo', 'closeChooser', 'gray') + '</div></div></div>';
+  return html + btn(t('cancel'), 'closeChooser', 'gray') + '</div></div></div>';
+}
+
+/** Two small buttons to choose the language. */
+function langSwitchHTML() {
+  return '<div class="lang-switch" role="group" aria-label="' + t('language') + '">' +
+    '<button class="lang' + (ui.lang === 'sq' ? ' on' : '') + '" data-action="lang" data-lang="sq">Shqip</button>' +
+    '<button class="lang' + (ui.lang === 'en' ? ' on' : '') + '" data-action="lang" data-lang="en">English</button></div>';
 }
 
 function helpHTML() {
   if (!ui.showHelp) return '';
-  return '<div class="overlay"><div class="dialog"><h2>Si luhet</h2><ul class="help">' +
-    '<li>Ti je poshtë në tavolinë. Loja shkon djathtas: pas teje luan ai në të djathtë, pastaj ai përballë, pastaj ai në të majtë.</li>' +
-    '<li>Kombinimet e çdo lojtari janë para tij. Shkronja e vogël mbi xhoker tregon cilën letër zëvendëson.</li>' +
-    '<li>Prek letrat për t\'i zgjedhur. <b>Tërhiqi</b> majtas ose djathtas për t\'i renditur si të duash. Letra që sapo more ka kornizë jeshile dhe del në fund djathtas.</li>' +
-    '<li><b>Gjej kombinimet</b> i gjen kombinimet më të mira për ty. <b>Bëj kombinim</b> përdor letrat që zgjodhe.</li>' +
-    '<li>Të duhen <b>51 pikë</b> për të hapur. <b>Hapu me ...</b> merr letrën e hedhur dhe hap me të.</li>' +
-    '<li>Pasi hap: zgjidh një letër dhe prek një <b>kombinim që ndriçon</b> për ta shitur. Zgjidh letrat e vërteta dhe prek një kombinim me xhoker për ta marrë xhokerin.</li>' +
-    '<li>Zgjidh një letër dhe shtyp <b>Hidh letrën</b> për ta mbaruar radhën. Letra e fundit që hedh e mbyll lojën.</li>' +
-    '<li>Pas 8 raundesh fiton ai me më pak pikë.</li></ul>' +
-    btn('Mbyll', 'closeHelp', 'yellow') + '<div style="height:10px"></div>' + btn('Dil nga loja', 'goHome', 'gray') + '</div></div>';
+  return '<div class="overlay"><div class="dialog"><h2>' + t('helpTitle') + '</h2>' + langSwitchHTML() + '<ul class="help">' +
+    t('helpItems').map((item) => '<li>' + item + '</li>').join('') + '</ul>' +
+    btn(t('rules'), 'rules', 'orange') + '<div style="height:10px"></div>' +
+    btn(t('close2'), 'closeHelp', 'yellow') + '<div style="height:10px"></div>' + btn(t('leaveGame'), 'goHome', 'gray') + '</div></div>';
+}
+
+/** The full rules of Zhol, from the start window or from the game. */
+function rulesHTML() {
+  if (!ui.showRules) return '';
+  return '<div class="overlay rules-overlay"><div class="dialog rules"><h2>' + t('rules') + '</h2>' + langSwitchHTML() +
+    '<div class="rules-text">' + t('rulesHTML') + '</div>' + btn(t('close2'), 'closeRules', 'yellow') + '</div></div>';
 }
 
 function gameHTML() {
-  if (!round()) return '<div class="screen"><h1>Duke u lidhur...</h1></div>';
+  if (!round()) return '<div class="screen"><h1>' + t('connecting') + '</h1></div>';
   return headerHTML() + tableHTML() + statusHTML() + stagedHTML() + actionsHTML() + handHTML() + resultHTML() + chooserHTML() + helpHTML();
 }
 
@@ -1909,7 +2309,7 @@ function render() {
     default: html = homeHTML();
   }
   app.className = ui.screen === 'game' ? 'in-game' : 'in-menu';
-  app.innerHTML = html;
+  app.innerHTML = html + rulesHTML();
   document.querySelectorAll('.zone').forEach((z) => { if (zoneScroll[z.className]) z.scrollTop = zoneScroll[z.className]; });
   const h2 = document.getElementById('hand');
   if (h2) {
@@ -1963,12 +2363,16 @@ function endDrag(drop, x) {
   const d = drag;
   drag = null;
   if (!d) return;
+  const ghostRect = d.ghost ? d.ghost.getBoundingClientRect() : null;
   if (d.ghost) d.ghost.remove();
   if (d.moving) {
     suppressClick = { id: d.id, until: Date.now() + 400 };
+    const oldRects = {};
+    handCardEls().forEach((el) => { oldRects[el.getAttribute('data-card')] = el.getBoundingClientRect(); });
     if (drop) moveCard(d.id, dropIndex(x, d.id));
     renderLater = false;
     render();
+    slideHand(oldRects, d.id, drop ? ghostRect : null);
   }
 }
 
@@ -2060,6 +2464,9 @@ app.addEventListener('click', (e) => {
     case 'nextRound': A().nextRound(); break;
     case 'takeover': online.takeover(index, el.getAttribute('data-on') === '1'); break;
     case 'chat': openChat(); break;
+    case 'lang': setLanguage(el.getAttribute('data-lang')); break;
+    case 'rules': ui.showRules = true; render(); break;
+    case 'closeRules': ui.showRules = false; render(); break;
     case 'help': ui.showHelp = true; render(); break;
     case 'closeHelp': ui.showHelp = false; render(); break;
     default: break;
@@ -2071,23 +2478,29 @@ app.addEventListener('click', (e) => {
 // Chat (only when playing with friends)
 // ============================================================
 
-const QUICK_MESSAGES = ['👍', '😂', '😮', 'Bravo!', 'Shpejt!', 'Ah, jo!'];
 const chat = { messages: [], lastId: 0, open: false, unread: 0, toastTimer: null, sending: false, synced: false };
 
 function chatButtonHTML() {
-  return '<button class="chat-btn" data-action="chat" aria-label="Bisedë">💬' + (chat.unread > 0 ? '<span class="unread">' + chat.unread + '</span>' : '') + '</button>';
+  return '<button class="chat-btn" data-action="chat" aria-label="' + t('chat') + '">💬' + (chat.unread > 0 ? '<span class="unread">' + chat.unread + '</span>' : '') + '</button>';
 }
 
 function buildChatUI() {
+  const old = document.getElementById('chat-panel');
+  const keep = old ? document.getElementById('chat-input').value : '';
+  if (old) old.remove();
+  const oldToast = document.getElementById('chat-toast');
+  if (oldToast) oldToast.remove();
+
   const panel = document.createElement('div');
   panel.id = 'chat-panel';
-  panel.className = 'chat-panel hidden';
-  panel.innerHTML = '<div class="chat-head"><b>Bisedë</b><button class="chat-close" id="chat-close">Mbyll</button></div>' +
+  panel.className = 'chat-panel' + (chat.open ? '' : ' hidden');
+  panel.innerHTML = '<div class="chat-head"><b>' + t('chat') + '</b><button class="chat-close" id="chat-close">' + t('close2') + '</button></div>' +
     '<div class="chat-list" id="chat-list"></div>' +
-    '<div class="chat-quick" id="chat-quick">' + QUICK_MESSAGES.map((m) => '<button data-quick="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
-    '<form class="chat-form" id="chat-form"><input id="chat-input" maxlength="200" autocomplete="off" placeholder="Shkruaj një mesazh..."><button type="submit">Dërgo</button></form>' +
+    '<div class="chat-quick" id="chat-quick">' + t('quick').map((m) => '<button data-quick="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
+    '<form class="chat-form" id="chat-form"><input id="chat-input" maxlength="200" autocomplete="off" placeholder="' + t('chatPlaceholder') + '"><button type="submit">' + t('send') + '</button></form>' +
     '<div class="chat-error" id="chat-error"></div>';
   document.body.appendChild(panel);
+  document.getElementById('chat-input').value = keep;
   const toast = document.createElement('div');
   toast.id = 'chat-toast';
   toast.className = 'chat-toast hidden';
@@ -2110,11 +2523,11 @@ function buildChatUI() {
 function renderChatList() {
   const list = document.getElementById('chat-list');
   if (!list) return;
-  if (chat.messages.length === 0) { list.innerHTML = '<p class="muted chat-empty">Ende asnjë mesazh. Thuaj diçka!</p>'; return; }
+  if (chat.messages.length === 0) { list.innerHTML = '<p class="muted chat-empty">' + t('chatEmpty') + '</p>'; return; }
   const myId = online.state && online.state.you.id;
   list.innerHTML = chat.messages.map((m) => {
     const mine = m.playerId === myId;
-    return '<div class="msg' + (mine ? ' mine' : '') + '"><span class="who">' + (mine ? 'Ti' : esc(m.name)) + '</span><span class="txt">' + esc(m.text) + '</span></div>';
+    return '<div class="msg' + (mine ? ' mine' : '') + '"><span class="who">' + (mine ? t('you') : esc(m.name)) + '</span><span class="txt">' + esc(m.text) + '</span></div>';
   }).join('');
   list.scrollTop = list.scrollHeight;
 }
@@ -2184,7 +2597,7 @@ async function sendChat(text) {
     err.textContent = '';
     return true;
   } catch (e) {
-    err.textContent = ERR[e.code] || ERR.network;
+    err.textContent = errText(e.code, 'network');
     return false;
   } finally { chat.sending = false; }
 }
@@ -2198,7 +2611,21 @@ window.__zholOnline = online;
 window.__zholSolo = solo;
 window.__zholChat = chat;
 
+function setLanguage(lang) {
+  if (lang !== 'sq' && lang !== 'en') return;
+  ui.lang = lang;
+  saveLocal('zhol.lang', lang);
+  try { document.documentElement.lang = lang; } catch (e) { /* ignore */ }
+  buildChatUI();
+  render();
+}
+
 (function boot() {
+  try { document.documentElement.lang = ui.lang; } catch (e) { /* ignore */ }
+  const brand = document.createElement('div');
+  brand.id = 'brand';
+  brand.textContent = 'Powered by Gentronics Lab';
+  document.body.appendChild(brand);
   buildChatUI();
   let params;
   try { params = new URLSearchParams(location.search); } catch (e) { params = null; }
