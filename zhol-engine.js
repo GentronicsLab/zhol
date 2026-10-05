@@ -44,28 +44,30 @@ function makeFullDeck() {
   return cards;
 }
 
-/** Shuffle, cut, deal. First player (right of the dealer) gets 15 cards, the others 14. 51 cards stay in the pile. */
-function dealRound(dealer, rng) {
+/** Shuffle, cut, deal for 2, 3 or 4 players. First player (right of the dealer) gets 15 cards, the others 14.
+ *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2). */
+function dealRound(dealer, rng, playerCount) {
   const r = rng || random;
+  const n = playerCount || 4;
   const deck = shuffle(makeFullDeck(), r);
-  const first = (dealer + 1) % 4;
-  const cutter = (dealer + 3) % 4;
+  const first = (dealer + 1) % n;
+  const cutter = (dealer + n - 1) % n;      // the player to the dealer's left
 
   const cutIndex = 40 + Math.floor(r() * 29);          // roughly half
   const cutCard = deck.splice(cutIndex - 1, 1)[0];
-  const hands = [[], [], [], []];
+  const hands = Array.from({ length: n }, () => []);
   let faceUp = null;
   if (isJoker(cutCard)) hands[cutter].push(cutCard); else faceUp = cutCard;
 
-  for (let step = 0; step < 4; step++) {
-    const seat = (first + step) % 4;
+  for (let step = 0; step < n; step++) {
+    const seat = (first + step) % n;
     let count = step === 0 ? 3 : 2;
     if (seat === cutter && isJoker(cutCard)) count -= 1;
     for (let k = 0; k < count; k++) hands[seat].push(deck.shift());
   }
   for (let round = 0; round < 6; round++)
-    for (let step = 0; step < 4; step++) {
-      const seat = (first + step) % 4;
+    for (let step = 0; step < n; step++) {
+      const seat = (first + step) % n;
       hands[seat].push(deck.shift());
       hands[seat].push(deck.shift());
     }
@@ -425,7 +427,7 @@ function roundScores(closer, type, players) {
   });
 }
 
-function dealerForRound(round, firstDealer) { return (firstDealer + round) % 4; }
+function dealerForRound(round, firstDealer, playerCount) { return (firstDealer + round) % (playerCount || 4); }
 
 // ---------- One round ----------
 
@@ -595,7 +597,7 @@ class GameRound {
     if (this.me.hand.length === 0) this._closeRound(card);
     else {
       this.discardPile.push(card);
-      this._startTurn((this.current + 1) % 4);
+      this._startTurn((this.current + 1) % this.players.length);
     }
   }
   _startTurn(seat) {
@@ -620,24 +622,25 @@ class GameRound {
 // ---------- The match: 8 rounds ----------
 
 class ZholMatch {
-  constructor() {
-    this.firstDealer = Math.floor(random() * 4);          // the first dealer is random
-    this.totals = [0, 0, 0, 0];
+  constructor(playerCount) {
+    this.playerCount = playerCount || 4;                    // 2, 3 or 4 players
+    this.firstDealer = Math.floor(random() * this.playerCount);   // the first dealer is random
+    this.totals = new Array(this.playerCount).fill(0);
     this.roundsPlayed = 0;
-    this.round = new GameRound(dealRound(this.firstDealer));
+    this.round = new GameRound(dealRound(this.firstDealer, undefined, this.playerCount));
   }
   get isFinished() { return this.roundsPlayed >= TOTAL_ROUNDS; }
   get leaders() {
     const lowest = Math.min(...this.totals);
     return this.totals.map((t, i) => (t === lowest ? i : -1)).filter((i) => i >= 0);
   }
-  get dealer() { return dealerForRound(this.roundsPlayed, this.firstDealer); }
+  get dealer() { return dealerForRound(this.roundsPlayed, this.firstDealer, this.playerCount); }
   /** Call when the round is finished: adds its scores and deals the next round. */
   startNextRound() {
     if (!this.round.result || this.isFinished) return;
-    for (let s = 0; s < 4; s++) this.totals[s] += this.round.result.scores[s];
+    for (let s = 0; s < this.playerCount; s++) this.totals[s] += this.round.result.scores[s];
     this.roundsPlayed += 1;
-    if (!this.isFinished) this.round = new GameRound(dealRound(dealerForRound(this.roundsPlayed, this.firstDealer)));
+    if (!this.isFinished) this.round = new GameRound(dealRound(this.dealer, undefined, this.playerCount));
   }
 }
 

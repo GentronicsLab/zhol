@@ -5,7 +5,8 @@
 // How it works:
 // - The game maker creates a game and gets a 4-letter code.
 // - Friends join with the code and their name (or open the shared link).
-// - The game maker presses Start. Empty seats are played by the computer.
+// - The game maker presses Start. Only people play: 2, 3 or 4 of them.
+// - Everyone in the game can chat.
 // - Every move is checked here with the same rules engine as the single-player game.
 // - Each phone gets live updates (Server-Sent Events) and only sees its own cards.
 
@@ -69,6 +70,7 @@ function createGame(hostName) {
     seats: null,           // [{ playerId | null, botName }]
     match: null,
     event: null, eventSeq: 0, roundId: 0,
+    chat: [], chatSeq: 0,
     botTimer: null,
   };
   games.set(code, game);
@@ -101,12 +103,10 @@ function seatName(game, seat) {
 }
 
 function startGame(game) {
-  // Seats in the order people joined: the game maker first. Play goes to the right in seat order.
+  // Only people: seats in the order they joined, the game maker first. Play goes to the right in seat order.
   const humans = game.players.slice(0, 4);
-  const used = new Set(humans.map((p) => p.name.toLowerCase()));
-  const botNames = BOT_NAMES.filter((n) => !used.has(n.toLowerCase()));
-  game.seats = [0, 1, 2, 3].map((i) => (humans[i] ? { playerId: humans[i].id, botName: botNames[i] || 'Kompjuteri ' + (i + 1) } : { playerId: null, botName: botNames.shift() || 'Kompjuteri ' + (i + 1) }));
-  game.match = new Z.ZholMatch();
+  game.seats = humans.map((p, i) => ({ playerId: p.id, botName: BOT_NAMES[i] }));   // botName: only if the computer has to step in
+  game.match = new Z.ZholMatch(humans.length);
   game.started = true;
   game.event = null;
   game.roundId++;
@@ -157,6 +157,7 @@ function viewFor(game, player) {
     started: game.started,
     you: { id: player.id, name: player.name, isHost: player.id === game.hostId },
     players: game.players.map((p) => ({ id: p.id, name: p.name, isHost: p.id === game.hostId, connected: p.clients.size > 0 })),
+    chat: game.chat.slice(-50),
     game: null,
   };
   if (!game.started) return view;
@@ -165,8 +166,7 @@ function viewFor(game, player) {
   const ev = game.event;
   view.game = {
     mySeat,
-    seats: [0, 1, 2, 3].map((s) => {
-      const st = game.seats[s];
+    seats: game.seats.map((st, s) => {
       const p = st.playerId ? game.players.find((x) => x.id === st.playerId) : null;
       return {
         name: seatName(game, s),
@@ -246,6 +246,18 @@ const routes = {
     return { code: game.code, token: player.token };
   },
   'POST /api/check': (body) => { findPlayer(body); return { ok: true }; },
+  'POST /api/chat': (body) => {
+    const { game, player } = findPlayer(body);
+    const text = String(body.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
+    if (!text) throw new ApiError('chatEmpty');
+    const now = Date.now();
+    if (player.lastChat && now - player.lastChat < 400) throw new ApiError('chatTooFast', 429);
+    player.lastChat = now;
+    game.chat.push({ id: ++game.chatSeq, playerId: player.id, name: player.name, text, t: now });
+    if (game.chat.length > 100) game.chat.splice(0, game.chat.length - 100);
+    broadcast(game);
+    return { ok: true };
+  },
   'POST /api/leave': (body) => {
     const { game, player } = findPlayer(body);
     if (!game.started) {
@@ -261,6 +273,7 @@ const routes = {
     const { game, player } = findPlayer(body);
     if (player.id !== game.hostId) throw new ApiError('notHost', 403);
     if (game.started) throw new ApiError('started');
+    if (game.players.length < 2) throw new ApiError('needTwo');
     startGame(game);
     broadcast(game);
     scheduleBots(game);
@@ -284,7 +297,7 @@ const routes = {
     const { game, player } = findPlayer(body);
     if (player.id !== game.hostId) throw new ApiError('notHost', 403);
     if (!game.started || game.match.round.phase !== 'finished') return { ok: true };
-    if (game.match.roundsPlayed + 1 >= Z.TOTAL_ROUNDS) game.match = new Z.ZholMatch();      // the last round: a new game
+    if (game.match.roundsPlayed + 1 >= Z.TOTAL_ROUNDS) game.match = new Z.ZholMatch(game.seats.length);      // the last round: a new game
     else game.match.startNextRound();
     game.event = null;
     game.roundId++;
