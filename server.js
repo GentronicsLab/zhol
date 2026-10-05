@@ -123,10 +123,24 @@ function doMove(game, seat, move) {
   else if (move.type === 'takeBottomCard' || move.type === 'takeDiscard') card = round.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;
   else if (move.type === 'takeDiscardAndOpen') card = topBefore;
   else if (move.type === 'discard' || move.type === 'sell') card = move.card;
-  game.event = { seq: ++game.eventSeq, seat, type: move.type, card, isPublic, count: move.groups ? move.groups.length : 0 };
+  else if (move.type === 'takeJoker') card = round.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;   // the joker (it was on the table)
+  game.event = {
+    seq: ++game.eventSeq, seat, type: move.type, card, isPublic,
+    count: move.groups ? move.groups.length : 0,
+    meld: move.meld !== undefined ? move.meld : null,                // which meld a card was sold to / a joker taken from
+    cards: move.giving ? move.giving : null,                         // the real cards given for a joker
+  };
   game.lastActive = Date.now();
   broadcast(game);
   scheduleBots(game);
+}
+
+/** How long a computer player waits before its next move, so people can follow what happened. */
+function pauseAfter(ev) {
+  if (BOT_DELAY === 0 || !ev) return BOT_DELAY;
+  if (ev.type === 'layDown' || ev.type === 'takeDiscardAndOpen') return BOT_DELAY + 1400;
+  if (ev.type === 'sell' || ev.type === 'takeJoker') return BOT_DELAY + 700;
+  return BOT_DELAY;
 }
 
 function scheduleBots(game) {
@@ -146,7 +160,7 @@ function scheduleBots(game) {
       const fallback = Z.botFallbackMove(r);
       if (fallback) { try { doMove(game, seat, fallback); } catch (e2) { if (!(e2 instanceof Z.MoveError)) throw e2; } }
     }
-  }, BOT_DELAY);
+  }, pauseAfter(game.event));
 }
 
 // ---------- What each phone sees ----------
@@ -189,7 +203,7 @@ function viewFor(game, player) {
     dealer: m.dealer,
     roundsPlayed: m.roundsPlayed,
     roundId: game.roundId,
-    event: ev ? { seq: ev.seq, seat: ev.seat, type: ev.type, count: ev.count, card: (ev.isPublic || ev.seat === mySeat) ? ev.card : null } : null,
+    event: ev ? { seq: ev.seq, seat: ev.seat, type: ev.type, count: ev.count, meld: ev.meld, cards: ev.cards, card: (ev.isPublic || ev.seat === mySeat) ? ev.card : null } : null,
   };
   return view;
 }
