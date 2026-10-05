@@ -94,18 +94,18 @@ button.link { background: none; border: none; color: var(--yellow); font-size: 1
 .mini-back:first-child { margin-left: 0; }
 .fan-count { margin-left: 6px; font-weight: 700; }
 
-.meld { display: flex; flex-wrap: wrap; justify-content: center; padding: 3px 3px 3px 13px; border-radius: 7px; cursor: pointer; max-width: 100%; box-sizing: border-box; }
-.meld .card { margin-left: -10px; }
+.meld { display: flex; flex-wrap: wrap; justify-content: center; padding: 3px 3px 3px 15px; border-radius: 7px; cursor: pointer; max-width: 100%; box-sizing: border-box; }
+.meld .card { margin-left: -12px; }
 .meld.can-sell { box-shadow: 0 0 0 2px var(--yellow), 0 0 10px var(--yellow); background: rgba(255, 213, 74, 0.15); }
 .meld.can-joker { box-shadow: 0 0 0 2px var(--violet), 0 0 10px var(--violet); background: rgba(199, 125, 255, 0.18); }
 
 .center { grid-area: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; }
 .center-piles { display: flex; align-items: center; gap: 10px; }
-.deck { position: relative; width: 58px; height: 62px; margin-left: 12px; display: flex; align-items: center; justify-content: flex-end; }
+.deck { position: relative; width: 66px; height: 72px; margin-left: 12px; display: flex; align-items: center; justify-content: flex-end; }
 .deck .bottom-card { position: absolute; left: -4px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
 .deck-stack { position: relative; z-index: 1; }
 .deck-stack .card.back { box-shadow: 1px 1px 0 #fff, 2px 2px 0 var(--back), 3px 3px 0 #fff, 4px 4px 0 var(--back); }
-.center-labels { display: flex; gap: 34px; font-size: 10px; color: var(--muted); padding-left: 16px; }
+.center-labels { display: flex; gap: 42px; font-size: 10px; color: var(--muted); padding-left: 16px; }
 .center-note { font-size: 10px; color: var(--muted); }
 
 /* ---- under the table ---- */
@@ -127,7 +127,7 @@ button.mini { background: var(--orange); color: #000; border: none; border-radiu
 
 .hand-box { display: flex; flex-direction: column; }
 .hand-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
-.hand { display: flex; overflow-x: auto; padding: 26px 8px 6px; min-height: 108px; box-sizing: border-box; touch-action: none; }
+.hand { display: flex; overflow-x: auto; padding: 26px 8px 6px; min-height: 122px; box-sizing: border-box; touch-action: none; }
 .hand .card { margin-left: -18px; cursor: grab; transition: transform 0.08s; }
 .hand .card:first-child { margin-left: 0; }
 .hand .card.sel { transform: translateY(-14px); }
@@ -205,6 +205,33 @@ label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-
 .badge.off { background: rgba(239, 107, 107, 0.55); }
 .plate button.mini { margin-top: 3px; white-space: normal; }
 .small-text { font-size: 12px; color: var(--muted); }
+.lobby-top { display: flex; align-items: center; justify-content: center; gap: 12px; }
+
+/* ---- tables for 2 and 3 players ---- */
+.table.seats-2 { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto minmax(0, 1fr); grid-template-areas: "top" "center" "bottom"; }
+.table.seats-2 .zone-top, .table.seats-2 .zone-bottom { max-height: none; }
+.table.seats-3 { grid-template-rows: minmax(0, 1fr) auto; grid-template-areas: "left center right" "bottom bottom bottom"; }
+
+/* ---- chat ---- */
+.chat-btn { position: relative; background: none; border: 1px solid var(--yellow); color: var(--yellow); border-radius: 14px; height: 28px; padding: 0 10px; font-size: 15px; }
+.chat-btn .unread { position: absolute; top: -7px; right: -7px; background: var(--redbtn); color: #fff; border-radius: 9px; font-size: 11px; min-width: 18px; height: 18px; line-height: 18px; padding: 0 4px; font-weight: 700; box-sizing: border-box; }
+.chat-panel { position: fixed; left: 0; right: 0; bottom: 0; max-width: 560px; margin: 0 auto; height: 60%; background: var(--dialog); border-radius: 16px 16px 0 0; box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.5); display: flex; flex-direction: column; z-index: 20; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; color: var(--text); }
+.chat-panel.hidden, .chat-toast.hidden { display: none; }
+.chat-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 17px; }
+.chat-close { background: none; border: none; color: var(--yellow); font-size: 15px; font-weight: 700; }
+.chat-list { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding: 4px 2px; -webkit-user-select: text; user-select: text; }
+.chat-empty { text-align: center; margin-top: 20px; }
+.msg { align-self: flex-start; max-width: 80%; background: rgba(255, 255, 255, 0.1); border-radius: 12px; padding: 6px 10px; font-size: 15px; line-height: 1.3; overflow-wrap: anywhere; }
+.msg.mine { align-self: flex-end; background: rgba(255, 213, 74, 0.25); }
+.msg .who { display: block; font-size: 11px; color: var(--muted); font-weight: 700; }
+.chat-quick { display: flex; gap: 6px; flex-wrap: wrap; margin: 6px 0; }
+.chat-quick button { background: rgba(255, 255, 255, 0.12); color: var(--text); border: none; border-radius: 14px; padding: 6px 10px; font-size: 14px; }
+.chat-form { display: flex; gap: 6px; }
+.chat-form input { flex: 1; min-width: 0; font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.25); color: var(--text); -webkit-user-select: text; user-select: text; }
+.chat-form input:focus { outline: none; border-color: var(--yellow); }
+.chat-form button { background: var(--yellow); border: none; border-radius: 10px; padding: 0 14px; font-weight: 700; font-size: 15px; color: #000; }
+.chat-error { color: var(--warn); font-size: 13px; min-height: 0; }
+.chat-toast { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); max-width: 90%; background: rgba(20, 20, 20, 0.92); color: #fff; padding: 8px 14px; border-radius: 14px; z-index: 25; font-size: 14px; box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5); cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 </style>
 </head>
 <body>
@@ -256,28 +283,30 @@ function makeFullDeck() {
   return cards;
 }
 
-/** Shuffle, cut, deal. First player (right of the dealer) gets 15 cards, the others 14. 51 cards stay in the pile. */
-function dealRound(dealer, rng) {
+/** Shuffle, cut, deal for 2, 3 or 4 players. First player (right of the dealer) gets 15 cards, the others 14.
+ *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2). */
+function dealRound(dealer, rng, playerCount) {
   const r = rng || random;
+  const n = playerCount || 4;
   const deck = shuffle(makeFullDeck(), r);
-  const first = (dealer + 1) % 4;
-  const cutter = (dealer + 3) % 4;
+  const first = (dealer + 1) % n;
+  const cutter = (dealer + n - 1) % n;      // the player to the dealer's left
 
   const cutIndex = 40 + Math.floor(r() * 29);          // roughly half
   const cutCard = deck.splice(cutIndex - 1, 1)[0];
-  const hands = [[], [], [], []];
+  const hands = Array.from({ length: n }, () => []);
   let faceUp = null;
   if (isJoker(cutCard)) hands[cutter].push(cutCard); else faceUp = cutCard;
 
-  for (let step = 0; step < 4; step++) {
-    const seat = (first + step) % 4;
+  for (let step = 0; step < n; step++) {
+    const seat = (first + step) % n;
     let count = step === 0 ? 3 : 2;
     if (seat === cutter && isJoker(cutCard)) count -= 1;
     for (let k = 0; k < count; k++) hands[seat].push(deck.shift());
   }
   for (let round = 0; round < 6; round++)
-    for (let step = 0; step < 4; step++) {
-      const seat = (first + step) % 4;
+    for (let step = 0; step < n; step++) {
+      const seat = (first + step) % n;
       hands[seat].push(deck.shift());
       hands[seat].push(deck.shift());
     }
@@ -637,7 +666,7 @@ function roundScores(closer, type, players) {
   });
 }
 
-function dealerForRound(round, firstDealer) { return (firstDealer + round) % 4; }
+function dealerForRound(round, firstDealer, playerCount) { return (firstDealer + round) % (playerCount || 4); }
 
 // ---------- One round ----------
 
@@ -807,7 +836,7 @@ class GameRound {
     if (this.me.hand.length === 0) this._closeRound(card);
     else {
       this.discardPile.push(card);
-      this._startTurn((this.current + 1) % 4);
+      this._startTurn((this.current + 1) % this.players.length);
     }
   }
   _startTurn(seat) {
@@ -832,24 +861,25 @@ class GameRound {
 // ---------- The match: 8 rounds ----------
 
 class ZholMatch {
-  constructor() {
-    this.firstDealer = Math.floor(random() * 4);          // the first dealer is random
-    this.totals = [0, 0, 0, 0];
+  constructor(playerCount) {
+    this.playerCount = playerCount || 4;                    // 2, 3 or 4 players
+    this.firstDealer = Math.floor(random() * this.playerCount);   // the first dealer is random
+    this.totals = new Array(this.playerCount).fill(0);
     this.roundsPlayed = 0;
-    this.round = new GameRound(dealRound(this.firstDealer));
+    this.round = new GameRound(dealRound(this.firstDealer, undefined, this.playerCount));
   }
   get isFinished() { return this.roundsPlayed >= TOTAL_ROUNDS; }
   get leaders() {
     const lowest = Math.min(...this.totals);
     return this.totals.map((t, i) => (t === lowest ? i : -1)).filter((i) => i >= 0);
   }
-  get dealer() { return dealerForRound(this.roundsPlayed, this.firstDealer); }
+  get dealer() { return dealerForRound(this.roundsPlayed, this.firstDealer, this.playerCount); }
   /** Call when the round is finished: adds its scores and deals the next round. */
   startNextRound() {
     if (!this.round.result || this.isFinished) return;
-    for (let s = 0; s < 4; s++) this.totals[s] += this.round.result.scores[s];
+    for (let s = 0; s < this.playerCount; s++) this.totals[s] += this.round.result.scores[s];
     this.roundsPlayed += 1;
-    if (!this.isFinished) this.round = new GameRound(dealRound(dealerForRound(this.roundsPlayed, this.firstDealer)));
+    if (!this.isFinished) this.round = new GameRound(dealRound(this.dealer, undefined, this.playerCount));
   }
 }
 
@@ -1001,7 +1031,8 @@ return {
 const Z = window.Zhol;
 const SUIT_SYMBOL = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
 const TEXT_STYLE = '\uFE0E';                    // asks the phone to draw ♥ as text, not as an emoji
-const AREAS = ['bottom', 'right', 'top', 'left'];
+// Where each player sits, seen from you (you are always at the bottom). Play goes to the right.
+const AREAS = { 2: ['bottom', 'top'], 3: ['bottom', 'right', 'left'], 4: ['bottom', 'right', 'top', 'left'] };
 const BOT_DELAY = (typeof window.ZHOL_BOT_DELAY === 'number') ? window.ZHOL_BOT_DELAY : 650;
 const FLY_MS = 420;
 const SOLO_NAMES = ['Ti', 'Besnik', 'Drita', 'Arben'];
@@ -1038,6 +1069,9 @@ const ERR = {
   badToken: 'Nuk je më në këtë lojë.',
   notYourTurn: 'Nuk është radha jote.',
   notStarted: 'Loja nuk ka filluar ende.',
+  needTwo: 'Duhen të paktën 2 lojtarë për të filluar.',
+  chatEmpty: 'Shkruaj diçka.',
+  chatTooFast: 'Pak më ngadalë me mesazhet.',
   network: 'Nuk ka lidhje me serverin. Provo përsëri.',
   generic: 'Ky veprim nuk lejohet.',
 };
@@ -1191,6 +1225,7 @@ const online = {
 
   connect(session) {
     this.disconnect();
+    chat.synced = false;
     this.session = session;
     saveLocal('zhol.session', JSON.stringify(session));
     const es = new EventSource('/api/events?code=' + encodeURIComponent(session.code) + '&token=' + encodeURIComponent(session.token));
@@ -1220,6 +1255,7 @@ const online = {
   disconnect() { if (this.es) { this.es.close(); this.es = null; } clearTimeout(this.lostTimer); this.connected = true; },
   leaveLocal() {
     this.disconnect();
+    resetChat();
     this.session = null; this.state = null; this.view = null;
     saveLocal('zhol.session', null);
     ui.mode = null; ui.screen = 'home';
@@ -1228,6 +1264,7 @@ const online = {
   onState(s) {
     const firstGameView = !!s.game && !(this.state && this.state.game);
     this.state = s;
+    onChatFromServer(s.chat || [], s.you.id);
     this.buildView();
     if (!s.started) { ui.mode = 'online'; ui.screen = 'lobby'; render(); return; }
     ui.mode = 'online'; ui.screen = 'game';
@@ -1266,7 +1303,8 @@ const mySeat = () => A().mySeat();
 const me = () => round().players[mySeat()];
 const isMyTurn = () => round().phase !== 'finished' && round().current === mySeat();
 const topDiscard = () => { const p = round().discardPile; return p.length ? p[p.length - 1] : null; };
-const areaOf = (seat) => AREAS[(seat - mySeat() + 4) % 4];
+const seatCount = () => round().players.length;
+const areaOf = (seat) => { const n = seatCount(); return AREAS[n][(seat - mySeat() + n) % n]; };
 
 function resetTurnState() {
   ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; ui.message = ''; ui.chooser = null; ui.newCardId = null;
@@ -1380,16 +1418,17 @@ const reduceMotion = (() => { try { return window.matchMedia('(prefers-reduced-m
 function rectOf(id) { const el = document.getElementById(id); return el ? el.getBoundingClientRect() : null; }
 function snapshot() {
   if (ui.screen !== 'game') return null;
-  return { deck: rectOf('deck'), discard: rectOf('discard'), seats: [0, 1, 2, 3].map((s) => rectOf(s === mySeat() ? 'hand' : 'seat-' + s)) };
+  return { deck: rectOf('deck'), discard: rectOf('discard'), seats: round().players.map((_, s) => rectOf(s === mySeat() ? 'hand' : 'seat-' + s)) };
 }
 function fly(from, to, card) {
   if (reduceMotion || !from || !to || !document.body.animate) return;
   const holder = document.createElement('div');
-  holder.innerHTML = card ? cardHTML(card, 40) : backHTML(40);
+  holder.innerHTML = card ? cardHTML(card, 46) : backHTML(46);
   const el = holder.firstChild;
   el.classList.add('flying');
-  const x0 = from.left + from.width / 2 - 20, y0 = from.top + from.height / 2 - 29;
-  const x1 = to.left + to.width / 2 - 20, y1 = to.top + to.height / 2 - 29;
+  const hw = 46 / 2, hh = 46 * 1.45 / 2;
+  const x0 = from.left + from.width / 2 - hw, y0 = from.top + from.height / 2 - hh;
+  const x1 = to.left + to.width / 2 - hw, y1 = to.top + to.height / 2 - hh;
   el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
   document.body.appendChild(el);
   const anim = el.animate(
@@ -1580,7 +1619,7 @@ function homeHTML() {
 function menuHTML() {
   return '<div class="screen"><h1>Si do të luash?</h1>' +
     btn('Krijo një lojë me shokët', 'toCreate', 'yellow big-btn') +
-    '<p class="muted">Ti merr një kod dhe ua dërgon shokëve.</p>' +
+    '<p class="muted">Ti merr një kod dhe ua dërgon shokëve. Luani 2, 3 ose 4 veta.</p>' +
     btn('Hyr në një lojë me kod', 'toJoin', 'orange big-btn') +
     '<p class="muted">Një shok të ka dërguar një kod.</p>' +
     btn('Luaj kundër kompjuterit', 'solo', 'green big-btn') +
@@ -1605,17 +1644,19 @@ function joinHTML() {
 function lobbyHTML() {
   const s = online.state;
   if (!s) return '<div class="screen"><h1>Duke u lidhur...</h1>' + btn('Kthehu', 'leaveLobby', 'gray') + '</div>';
-  let html = '<div class="screen lobby"><h1>Dhoma e pritjes</h1><div class="code-box"><span>Kodi i lojës</span><b>' + esc(s.code) + '</b></div>';
+  let html = '<div class="screen lobby"><div class="lobby-top"><h1>Dhoma e pritjes</h1>' + chatButtonHTML() + '</div><div class="code-box"><span>Kodi i lojës</span><b>' + esc(s.code) + '</b></div>';
   if (s.you.isHost) html += btn('Dërgo lidhjen shokëve', 'share', 'orange big-btn') + '<p class="muted">Ose thuaju kodin. Ata shtypin "Hyr në një lojë me kod".</p>';
   html += '<h2>Lojtarët (' + s.players.length + ' nga 4)</h2><ul class="player-list">';
   s.players.forEach((p) => {
     html += '<li>' + (p.isHost ? '👑 ' : '') + '<b>' + esc(p.name) + '</b>' + (p.id === s.you.id ? ' <span class="badge">ti</span>' : '') +
       (p.connected ? '' : ' <span class="badge off">jo në linjë</span>') + '</li>';
   });
-  for (let i = s.players.length; i < 4; i++) html += '<li class="muted">Vend bosh: do ta luajë kompjuteri</li>';
-  html += '</ul>';
+  html += '</ul><p class="muted">Luajnë vetëm njerëz: 2, 3 ose 4 veta.</p>';
   if (ui.lobbyNote) html += '<p class="warn">' + esc(ui.lobbyNote) + '</p>';
-  if (s.you.isHost) html += btn('Fillo lojën', 'startOnline', 'yellow big-btn');
+  if (s.you.isHost) {
+    html += btn('Fillo lojën me ' + s.players.length + ' lojtarë', 'startOnline', 'yellow big-btn', s.players.length < 2);
+    if (s.players.length < 2) html += '<p class="muted">Prit që të hyjë të paktën një shok.</p>';
+  }
   else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' ta fillojë lojën...</p>';
   html += btn('Dil', 'leaveLobby', 'gray');
   if (!online.connected) html += '<p class="warn">Lidhja u ndërpre. Po lidhem përsëri...</p>';
@@ -1653,7 +1694,7 @@ function emptySlotHTML(w) { return '<div class="card empty" style="--w:' + w + '
 function headerHTML() {
   const roundNo = Math.min(A().roundsPlayed() + 1, Z.TOTAL_ROUNDS);
   return '<div class="header"><b class="title">Zhol</b><span>Raundi ' + roundNo + ' nga ' + Z.TOTAL_ROUNDS + '</span>' +
-    (ui.mode === 'online' ? '<span class="small-text">Kodi ' + esc(online.session.code) + '</span>' : '') +
+    (ui.mode === 'online' ? '<span class="small-text">Kodi ' + esc(online.session.code) + '</span>' + chatButtonHTML() : '') +
     '<button class="help-btn" data-action="help" aria-label="Ndihmë">?</button></div>';
 }
 
@@ -1664,7 +1705,7 @@ function meldHTML(meld, index) {
   meld.cards.forEach((card, pos) => {
     let stands = null;
     if (Z.isJoker(card) && meld.kind === 'run' && pos < meld.positions.length) { const place = meld.positions[pos]; stands = rankText(place === 14 ? 1 : place); }
-    html += cardHTML(card, 24, { stands });
+    html += cardHTML(card, 28, { stands });
   });
   return html + '</div>';
 }
@@ -1705,18 +1746,17 @@ function zoneHTML(seat) {
 function centerHTML() {
   const r = round(), top = topDiscard();
   let deck = '<div class="deck" id="deck">';
-  if (r.bottomCard) deck += '<div class="bottom-card">' + cardHTML(r.bottomCard, 34) + '</div>';
-  deck += r.drawPile.length ? '<div class="deck-stack">' + backHTML(40, r.drawPile.length) + '</div>' : emptySlotHTML(40);
+  if (r.bottomCard) deck += '<div class="bottom-card">' + cardHTML(r.bottomCard, 38) + '</div>';
+  deck += r.drawPile.length ? '<div class="deck-stack">' + backHTML(46, r.drawPile.length) + '</div>' : emptySlotHTML(46);
   deck += '</div>';
   return '<div class="center"><div class="center-piles">' + deck +
-    '<div class="thrown" id="discard">' + (top ? cardHTML(top, 40) : emptySlotHTML(40)) + '</div></div>' +
+    '<div class="thrown" id="discard">' + (top ? cardHTML(top, 46) : emptySlotHTML(46)) + '</div></div>' +
     '<div class="center-labels"><span>Pakoja</span><span>E hedhur</span></div>' +
     (r.bottomCard ? '<div class="center-note">Poshtë pakos: ' + cardText(r.bottomCard) + '</div>' : '') + '</div>';
 }
 
 function tableHTML() {
-  const order = [0, 1, 2, 3];
-  return '<div class="table" id="table">' + order.map(zoneHTML).join('') + centerHTML() + '</div>';
+  return '<div class="table seats-' + seatCount() + '" id="table">' + round().players.map((_, s) => zoneHTML(s)).join('') + centerHTML() + '</div>';
 }
 
 function statusHTML() {
@@ -1731,7 +1771,7 @@ function stagedHTML() {
   if (ui.staged.length === 0) return '';
   let html = '<div class="staged">';
   ui.staged.forEach((group, i) => {
-    html += '<div class="staged-row"><div class="meld">' + group.map((c) => cardHTML(c, 24)).join('') + '</div><b>' + meldPoints(group) +
+    html += '<div class="staged-row"><div class="meld">' + group.map((c) => cardHTML(c, 26)).join('') + '</div><b>' + meldPoints(group) +
       '</b><button class="mini" data-action="unstage" data-index="' + i + '">✕</button></div>';
   });
   html += '<b class="warn">Pikët e kombinimeve: ' + stagedPoints() + (me().hasOpened ? '' : ' nga ' + Z.OPENING_MINIMUM + ' që duhen') + '</b></div>';
@@ -1751,9 +1791,9 @@ function actionsHTML() {
       const top = topDiscard();
       if (top) {
         html += me().hasOpened ? btn('Merr ' + cardText(top), 'takeDiscard', 'orange', ui.busy)
-                               : btn('Hap me ' + cardText(top), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
+                               : btn('Hapu me ' + cardText(top), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
       }
-      if (!me().hasOpened && r.bottomCard) html += btn('Letra poshtë (Dorë)', 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
+      if (!me().hasOpened && r.bottomCard) html += btn('Letra poshtë (Mbylle me Hand)', 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
     }
   } else {
     if (r.phase === 'play') {
@@ -1771,7 +1811,7 @@ function handHTML() {
     '<span class="drag-tip">Tërhiqi letrat për t\'i renditur</span><span><button class="link" data-action="sortSuit">Sipas shenjës</button>' +
     '<button class="link" data-action="sortRank">Sipas numrit</button></span></div><div class="hand" id="hand">';
   cards.forEach((card) => {
-    html += cardHTML(card, 52, {
+    html += cardHTML(card, 60, {
       selected: ui.selected.has(card.id),
       highlight: ui.openingWithDiscard && topDiscard() && card.id === topDiscard().id,
       isNew: card.id === ui.newCardId,
@@ -1814,7 +1854,7 @@ function resultHTML() {
   let html = '<div class="overlay"><div class="dialog"><h2>' + (over ? 'Loja mbaroi' : 'Raundi ' + (played + 1) + ' mbaroi') + '</h2>';
   html += over ? '<p class="big">' + winner + '</p><p>' + closeText(result) + '</p>' : '<p>' + closeText(result) + '</p>';
   html += '<table><tr><th></th><th>Raundi</th><th>Totali</th></tr>';
-  for (let s = 0; s < 4; s++) html += '<tr><td>' + esc(names[s]) + '</td><td>' + result.scores[s] + '</td><td>' + totals[s] + '</td></tr>';
+  for (let s = 0; s < names.length; s++) html += '<tr><td>' + esc(names[s]) + '</td><td>' + result.scores[s] + '</td><td>' + totals[s] + '</td></tr>';
   html += '</table><p class="muted">Fiton totali më i ulët.</p>';
   if (A().isHost()) html += btn(over ? 'Lojë e re' : 'Raundi tjetër', 'nextRound', 'yellow');
   else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' të vazhdojë...</p>';
@@ -1836,7 +1876,7 @@ function helpHTML() {
     '<li>Kombinimet e çdo lojtari janë para tij. Shkronja e vogël mbi xhoker tregon cilën letër zëvendëson.</li>' +
     '<li>Prek letrat për t\'i zgjedhur. <b>Tërhiqi</b> majtas ose djathtas për t\'i renditur si të duash. Letra që sapo more ka kornizë jeshile dhe del në fund djathtas.</li>' +
     '<li><b>Gjej kombinimet</b> i gjen kombinimet më të mira për ty. <b>Bëj kombinim</b> përdor letrat që zgjodhe.</li>' +
-    '<li>Të duhen <b>51 pikë</b> për të hapur. <b>Hap me ...</b> merr letrën e hedhur dhe hap me të.</li>' +
+    '<li>Të duhen <b>51 pikë</b> për të hapur. <b>Hapu me ...</b> merr letrën e hedhur dhe hap me të.</li>' +
     '<li>Pasi hap: zgjidh një letër dhe prek një <b>kombinim që ndriçon</b> për ta shitur. Zgjidh letrat e vërteta dhe prek një kombinim me xhoker për ta marrë xhokerin.</li>' +
     '<li>Zgjidh një letër dhe shtyp <b>Hidh letrën</b> për ta mbaruar radhën. Letra e fundit që hedh e mbyll lojën.</li>' +
     '<li>Pas 8 raundesh fiton ai me më pak pikë.</li></ul>' +
@@ -1889,7 +1929,7 @@ function layoutHand(handEl) {
   const n = cards.length;
   const width = handEl.clientWidth - 16;
   if (n < 2 || width <= 0) return;
-  const w = cards[0].offsetWidth || 52;
+  const w = cards[0].offsetWidth || 60;
   const step = Math.max(14, Math.min(w + 4, (width - w) / (n - 1)));
   cards.forEach((c, i) => { c.style.marginLeft = (i === 0 ? 0 : step - w) + 'px'; });
 }
@@ -2019,11 +2059,135 @@ app.addEventListener('click', (e) => {
     case 'sortRank': sortHand('rank'); break;
     case 'nextRound': A().nextRound(); break;
     case 'takeover': online.takeover(index, el.getAttribute('data-on') === '1'); break;
+    case 'chat': openChat(); break;
     case 'help': ui.showHelp = true; render(); break;
     case 'closeHelp': ui.showHelp = false; render(); break;
     default: break;
   }
 });
+
+
+// ============================================================
+// Chat (only when playing with friends)
+// ============================================================
+
+const QUICK_MESSAGES = ['👍', '😂', '😮', 'Bravo!', 'Shpejt!', 'Ah, jo!'];
+const chat = { messages: [], lastId: 0, open: false, unread: 0, toastTimer: null, sending: false, synced: false };
+
+function chatButtonHTML() {
+  return '<button class="chat-btn" data-action="chat" aria-label="Bisedë">💬' + (chat.unread > 0 ? '<span class="unread">' + chat.unread + '</span>' : '') + '</button>';
+}
+
+function buildChatUI() {
+  const panel = document.createElement('div');
+  panel.id = 'chat-panel';
+  panel.className = 'chat-panel hidden';
+  panel.innerHTML = '<div class="chat-head"><b>Bisedë</b><button class="chat-close" id="chat-close">Mbyll</button></div>' +
+    '<div class="chat-list" id="chat-list"></div>' +
+    '<div class="chat-quick" id="chat-quick">' + QUICK_MESSAGES.map((m) => '<button data-quick="' + esc(m) + '">' + esc(m) + '</button>').join('') + '</div>' +
+    '<form class="chat-form" id="chat-form"><input id="chat-input" maxlength="200" autocomplete="off" placeholder="Shkruaj një mesazh..."><button type="submit">Dërgo</button></form>' +
+    '<div class="chat-error" id="chat-error"></div>';
+  document.body.appendChild(panel);
+  const toast = document.createElement('div');
+  toast.id = 'chat-toast';
+  toast.className = 'chat-toast hidden';
+  document.body.appendChild(toast);
+
+  document.getElementById('chat-close').addEventListener('click', closeChat);
+  toast.addEventListener('click', openChat);
+  document.getElementById('chat-quick').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-quick]');
+    if (b) sendChat(b.getAttribute('data-quick'));
+  });
+  document.getElementById('chat-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const input = document.getElementById('chat-input');
+    sendChat(input.value).then((ok) => { if (ok) input.value = ''; });
+  });
+  renderChatList();
+}
+
+function renderChatList() {
+  const list = document.getElementById('chat-list');
+  if (!list) return;
+  if (chat.messages.length === 0) { list.innerHTML = '<p class="muted chat-empty">Ende asnjë mesazh. Thuaj diçka!</p>'; return; }
+  const myId = online.state && online.state.you.id;
+  list.innerHTML = chat.messages.map((m) => {
+    const mine = m.playerId === myId;
+    return '<div class="msg' + (mine ? ' mine' : '') + '"><span class="who">' + (mine ? 'Ti' : esc(m.name)) + '</span><span class="txt">' + esc(m.text) + '</span></div>';
+  }).join('');
+  list.scrollTop = list.scrollHeight;
+}
+
+function onChatFromServer(list, myId) {
+  if (!chat.synced) {                                 // the first update after (re)connecting: old messages are not "new"
+    chat.synced = true;
+    chat.messages = list.slice(-50);
+    chat.lastId = list.length ? list[list.length - 1].id : 0;
+    renderChatList();
+    return;
+  }
+  const fresh = list.filter((m) => m.id > chat.lastId);
+  if (fresh.length === 0) return;
+  chat.messages = list.slice(-50);
+  chat.lastId = list[list.length - 1].id;
+  const fromOthers = fresh.filter((m) => m.playerId !== myId);
+  if (!chat.open && fromOthers.length > 0) {
+    chat.unread += fromOthers.length;
+    showToast(fromOthers[fromOthers.length - 1]);
+  }
+  renderChatList();
+}
+
+function showToast(m) {
+  const toast = document.getElementById('chat-toast');
+  if (!toast) return;
+  toast.innerHTML = '<b>' + esc(m.name) + ':</b> ' + esc(m.text);
+  toast.classList.remove('hidden');
+  clearTimeout(chat.toastTimer);
+  chat.toastTimer = setTimeout(() => toast.classList.add('hidden'), 3500);
+}
+
+function openChat() {
+  if (ui.mode !== 'online') return;
+  chat.open = true;
+  chat.unread = 0;
+  document.getElementById('chat-panel').classList.remove('hidden');
+  document.getElementById('chat-toast').classList.add('hidden');
+  document.getElementById('chat-error').textContent = '';
+  renderChatList();
+  render();
+}
+
+function closeChat() {
+  chat.open = false;
+  document.getElementById('chat-panel').classList.add('hidden');
+  render();
+}
+
+function resetChat() {
+  chat.messages = []; chat.lastId = 0; chat.unread = 0; chat.open = false; chat.synced = false;
+  const panel = document.getElementById('chat-panel');
+  if (panel) panel.classList.add('hidden');
+  const toast = document.getElementById('chat-toast');
+  if (toast) toast.classList.add('hidden');
+  renderChatList();
+}
+
+async function sendChat(text) {
+  text = String(text || '').trim();
+  const err = document.getElementById('chat-error');
+  if (!text || !online.session || chat.sending) return false;
+  chat.sending = true;
+  try {
+    await online.api('/api/chat', { code: online.session.code, token: online.session.token, text });
+    err.textContent = '';
+    return true;
+  } catch (e) {
+    err.textContent = ERR[e.code] || ERR.network;
+    return false;
+  } finally { chat.sending = false; }
+}
 
 // ============================================================
 // Start: a shared link (?kod=ABCD) opens the join screen; a saved game is reopened
@@ -2032,8 +2196,10 @@ app.addEventListener('click', (e) => {
 window.__zhol = ui;
 window.__zholOnline = online;
 window.__zholSolo = solo;
+window.__zholChat = chat;
 
 (function boot() {
+  buildChatUI();
   let params;
   try { params = new URLSearchParams(location.search); } catch (e) { params = null; }
   const linkCode = params && params.get('kod');
