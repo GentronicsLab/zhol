@@ -1,0 +1,2055 @@
+<!DOCTYPE html>
+<html lang="sq">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Zhol">
+<meta name="theme-color" content="#0d5433">
+<title>Zhol</title>
+<style>
+:root {
+  --page: #17231c;
+  --wood: #6b4423;
+  --felt: #0d5433;
+  --felt-light: #16804f;
+  --panel: rgba(0, 0, 0, 0.28);
+  --panel-turn: rgba(255, 213, 74, 0.32);
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.75);
+  --warn: #ffd54a;
+  --dialog: #262626;
+  --card-bg: #ffffff;
+  --card-border: #8a8f94;
+  --red: #c62828;
+  --black: #111111;
+  --joker: #7b1fa2;
+  --sel: #2563eb;
+  --hi: #f57c00;
+  --new: #2e7d32;
+  --yellow: #ffd54a;
+  --orange: #ff9f43;
+  --green: #7bd88f;
+  --gray: #b0b4b8;
+  --redbtn: #ef6b6b;
+  --violet: #c77dff;
+  --back: #2f6fd1;
+  box-sizing: border-box;
+  padding-top: env(safe-area-inset-top, 0px);
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) { --page: #0f1712; --felt: #0a4329; --felt-light: #116840; --dialog: #1b1b1b; --wood: #563519; }
+}
+:root[data-theme="dark"] { --page: #0f1712; --felt: #0a4329; --felt-light: #116840; --dialog: #1b1b1b; --wood: #563519; }
+html { scroll-padding-top: env(safe-area-inset-top, 0px); height: 100%; }
+body {
+  margin: 0; height: 100%;
+  background: var(--page); color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-user-select: none; user-select: none;
+  touch-action: manipulation; -webkit-tap-highlight-color: transparent;
+}
+#app { height: 100%; max-width: 560px; overflow: hidden; margin: 0 auto; padding: 6px 8px; box-sizing: border-box; display: flex; flex-direction: column; gap: 6px; }
+button { font-family: inherit; cursor: pointer; }
+.muted { color: var(--muted); font-size: 13px; }
+
+.header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.header .title { font-size: 22px; }
+.help-btn { background: none; color: var(--yellow); font-size: 16px; font-weight: 700; border: 1px solid var(--yellow); border-radius: 50%; width: 28px; height: 28px; padding: 0; }
+button.link { background: none; border: none; color: var(--yellow); font-size: 13px; padding: 4px 6px; }
+
+/* ---- the table ---- */
+.table {
+  flex: 1 1 auto; min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-areas: "top top top" "left center right" "bottom bottom bottom";
+  gap: 6px;
+  background: radial-gradient(ellipse at center, var(--felt-light) 0%, var(--felt) 72%);
+  border: 7px solid var(--wood);
+  border-radius: 28px;
+  padding: 8px;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.45), 0 3px 10px rgba(0, 0, 0, 0.5);
+}
+.zone { min-width: 0; min-height: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; overflow-y: auto; }
+.zone-top { grid-area: top; max-height: 160px; }
+.zone-left { grid-area: left; }
+.zone-right { grid-area: right; }
+.zone-bottom { grid-area: bottom; max-height: 150px; }
+.zone-melds { display: flex; flex-direction: column; align-items: center; gap: 4px; width: 100%; }
+.zone-top .zone-melds, .zone-bottom .zone-melds { flex-direction: row; flex-wrap: wrap; justify-content: center; }
+
+.plate { background: var(--panel); border-radius: 10px; padding: 4px 8px; display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; min-width: 84px; max-width: 100%; box-sizing: border-box; }
+.zone-bottom .plate { flex-direction: row; gap: 10px; }
+.plate.turn { background: var(--panel-turn); box-shadow: 0 0 0 2px var(--yellow); }
+.plate-name { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 4px; }
+.plate-name b { font-size: 13px; }
+.badge { font-size: 9px; background: rgba(255, 255, 255, 0.22); border-radius: 6px; padding: 1px 5px; }
+.badge.open { background: rgba(123, 216, 143, 0.45); }
+.fan { display: flex; align-items: center; }
+.mini-back { width: 10px; height: 15px; background: var(--back); border: 1px solid #fff; border-radius: 2px; margin-left: -5px; }
+.mini-back:first-child { margin-left: 0; }
+.fan-count { margin-left: 6px; font-weight: 700; }
+
+.meld { display: flex; flex-wrap: wrap; justify-content: center; padding: 3px 3px 3px 13px; border-radius: 7px; cursor: pointer; max-width: 100%; box-sizing: border-box; }
+.meld .card { margin-left: -10px; }
+.meld.can-sell { box-shadow: 0 0 0 2px var(--yellow), 0 0 10px var(--yellow); background: rgba(255, 213, 74, 0.15); }
+.meld.can-joker { box-shadow: 0 0 0 2px var(--violet), 0 0 10px var(--violet); background: rgba(199, 125, 255, 0.18); }
+
+.center { grid-area: center; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; min-width: 0; }
+.center-piles { display: flex; align-items: center; gap: 10px; }
+.deck { position: relative; width: 58px; height: 62px; margin-left: 12px; display: flex; align-items: center; justify-content: flex-end; }
+.deck .bottom-card { position: absolute; left: -4px; top: 50%; transform: translateY(-50%) rotate(-90deg); }
+.deck-stack { position: relative; z-index: 1; }
+.deck-stack .card.back { box-shadow: 1px 1px 0 #fff, 2px 2px 0 var(--back), 3px 3px 0 #fff, 4px 4px 0 var(--back); }
+.center-labels { display: flex; gap: 34px; font-size: 10px; color: var(--muted); padding-left: 16px; }
+.center-note { font-size: 10px; color: var(--muted); }
+
+/* ---- under the table ---- */
+.status { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 2px; font-size: 13px; min-height: 34px; }
+.warn { color: var(--warn); }
+.staged { background: var(--panel); border-radius: 8px; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.staged-row { display: flex; align-items: center; gap: 6px; }
+.staged .meld { cursor: default; }
+.actions { display: flex; gap: 6px; }
+button.act { flex: 1; border: none; border-radius: 8px; padding: 9px 4px; font-size: 13px; font-weight: 700; color: #000; }
+button.act:disabled { opacity: 0.35; cursor: default; }
+button.act:active:not(:disabled) { opacity: 0.7; }
+.yellow { background: var(--yellow); }
+.orange { background: var(--orange); }
+.green { background: var(--green); }
+.gray { background: var(--gray); }
+.red { background: var(--redbtn); }
+button.mini { background: var(--orange); color: #000; border: none; border-radius: 6px; padding: 4px 7px; font-size: 11px; font-weight: 700; white-space: nowrap; flex: 0 0 auto; }
+
+.hand-box { display: flex; flex-direction: column; }
+.hand-head { display: flex; justify-content: space-between; align-items: center; font-size: 12px; }
+.hand { display: flex; overflow-x: auto; padding: 26px 8px 6px; min-height: 108px; box-sizing: border-box; touch-action: none; }
+.hand .card { margin-left: -18px; cursor: grab; transition: transform 0.08s; }
+.hand .card:first-child { margin-left: 0; }
+.hand .card.sel { transform: translateY(-14px); }
+.hand .card.dragging { opacity: 0.25; }
+.hand .card.drop-before::before, .hand .card.drop-after::after {
+  content: ""; position: absolute; top: -8px; bottom: -8px; width: 4px; border-radius: 2px; background: var(--yellow); z-index: 5;
+}
+.hand .card.drop-before::before { left: -5px; }
+.hand .card.drop-after::after { right: -5px; }
+.drag-ghost { position: fixed; z-index: 40; pointer-events: none; margin: 0; transform: rotate(-4deg) scale(1.08); box-shadow: 0 8px 18px rgba(0, 0, 0, 0.55); cursor: grabbing; }
+.drag-tip { color: var(--muted); font-size: 11px; }
+
+/* ---- cards ---- */
+.card {
+  --w: 46px;
+  position: relative; flex: 0 0 auto;
+  width: var(--w); height: calc(var(--w) * 1.45);
+  border-radius: calc(var(--w) * 0.14);
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  box-sizing: border-box; color: var(--black);
+}
+.card.red { color: var(--red); }
+.card.sel { border: 3px solid var(--sel); }
+.card.hi { border: 3px solid var(--hi); }
+.card.new { border: 3px solid var(--new); }
+.card.new.sel { border-color: var(--sel); }
+.card .new-tag { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--new); color: #fff; font-size: 9px; font-weight: 700; padding: 1px 4px; border-radius: 4px; }
+.card .big-suit { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: calc(var(--w) * 0.6); opacity: 0.35; }
+.card .idx { position: absolute; left: calc(var(--w) * 0.08); top: calc(var(--w) * 0.04); font-size: calc(var(--w) * 0.3); font-weight: 700; line-height: 1.05; }
+.card.small { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.card.small .r { font-size: calc(var(--w) * 0.42); font-weight: 700; line-height: 1; }
+.card.small .s { font-size: calc(var(--w) * 0.4); line-height: 1; }
+.card.joker { color: var(--joker); display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.card.joker .jk-star { font-size: calc(var(--w) * 0.5); line-height: 1; }
+.card.joker .jk-text { font-size: calc(var(--w) * 0.17); font-weight: 700; }
+.card.joker .jk-stand { font-size: calc(var(--w) * 0.36); font-weight: 700; line-height: 1; }
+.card.back { background: var(--back); border: 2px solid #fff; display: flex; align-items: center; justify-content: center; color: #fff; }
+.card.back .count { font-size: calc(var(--w) * 0.38); font-weight: 700; }
+.card.empty { background: none; border: 1px dashed rgba(255, 255, 255, 0.5); }
+.flying { position: fixed; z-index: 30; pointer-events: none; margin: 0; box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5); }
+
+/* ---- pop-ups ---- */
+.overlay { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.75); display: flex; align-items: center; justify-content: center; padding: calc(24px + env(safe-area-inset-top, 0px)) 24px calc(24px + env(safe-area-inset-bottom, 0px)); box-sizing: border-box; z-index: 10; }
+.dialog { background: var(--dialog); border-radius: 16px; padding: 20px; max-width: 360px; width: 100%; text-align: center; max-height: 100%; overflow-y: auto; box-sizing: border-box; }
+.dialog h2 { margin: 0 0 8px; font-size: 20px; }
+.dialog p { margin: 6px 0; }
+.dialog .big { font-size: 20px; font-weight: 700; }
+.dialog table { width: 100%; margin: 10px 0; border-collapse: collapse; }
+.dialog th, .dialog td { padding: 4px; text-align: right; }
+.dialog th:first-child, .dialog td:first-child { text-align: left; }
+.dialog button.act { width: 100%; flex: none; }
+.choices { display: flex; flex-direction: column; gap: 8px; }
+ul.help { text-align: left; padding-left: 18px; font-size: 14px; line-height: 1.4; }
+
+/* ---- start window, joining, waiting room ---- */
+#app.in-menu { justify-content: center; }
+.screen { display: flex; flex-direction: column; gap: 10px; align-items: stretch; max-width: 380px; width: 100%; margin: 0 auto; text-align: center; overflow-y: auto; padding: 8px 4px; box-sizing: border-box; max-height: 100%; }
+.screen h1 { font-size: 24px; margin: 6px 0; }
+.screen h2 { font-size: 17px; margin: 10px 0 2px; }
+.screen p { margin: 0 0 6px; }
+.home .logo { font-size: 68px; font-weight: 800; letter-spacing: 2px; color: var(--yellow); text-shadow: 0 3px 0 rgba(0, 0, 0, 0.35); }
+.home .tagline { color: var(--muted); }
+.suits-row { font-size: 28px; letter-spacing: 10px; margin: 8px 0 18px; }
+button.big-btn { padding: 14px 8px; font-size: 17px; flex: none; }
+.screen button.act { flex: none; }
+label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-size: 14px; color: var(--muted); }
+.field { font: inherit; font-size: 18px; padding: 10px 12px; border-radius: 10px; border: 2px solid rgba(255, 255, 255, 0.3); background: rgba(0, 0, 0, 0.25); color: var(--text); -webkit-user-select: text; user-select: text; }
+.field:focus { outline: none; border-color: var(--yellow); }
+.code-field { text-transform: uppercase; letter-spacing: 8px; font-weight: 700; text-align: center; font-size: 26px; }
+.code-box { background: var(--panel); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 2px; }
+.code-box b { font-size: 46px; letter-spacing: 10px; color: var(--yellow); }
+.player-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; text-align: left; }
+.player-list li { background: var(--panel); border-radius: 10px; padding: 10px 12px; }
+.waiting { color: var(--muted); font-style: italic; }
+.badge.off { background: rgba(239, 107, 107, 0.55); }
+.plate button.mini { margin-top: 3px; white-space: normal; }
+.small-text { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Zhol = factory();
+}(typeof self !== 'undefined' ? self : this, function () {
+'use strict';
+
+// ============================================================
+// Zhol rules engine. Seats 0..3 go to the right (the direction of play).
+// Cards: { id, rank, suit }. rank 1 = ace ... 13 = king. A joker has rank null and suit null.
+// ============================================================
+
+const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+const OPENING_MINIMUM = 51;
+const TOTAL_ROUNDS = 8;
+
+let random = Math.random;
+function setRandom(fn) { random = fn || Math.random; }
+
+const isJoker = (c) => c.rank === null;
+
+function handPoints(c) {
+  if (c.rank === null) return 25;
+  return (c.rank === 1 || c.rank >= 10) ? 10 : c.rank;
+}
+
+function shuffle(arr, rng) {
+  const r = rng || random;
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(r() * (i + 1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+
+// ---------- Deck and deal ----------
+
+function makeFullDeck() {
+  const cards = [];
+  let id = 0;
+  for (let d = 0; d < 2; d++)
+    for (const suit of SUITS)
+      for (let rank = 1; rank <= 13; rank++) cards.push({ id: id++, rank, suit });
+  for (let j = 0; j < 4; j++) cards.push({ id: id++, rank: null, suit: null });
+  return cards;
+}
+
+/** Shuffle, cut, deal. First player (right of the dealer) gets 15 cards, the others 14. 51 cards stay in the pile. */
+function dealRound(dealer, rng) {
+  const r = rng || random;
+  const deck = shuffle(makeFullDeck(), r);
+  const first = (dealer + 1) % 4;
+  const cutter = (dealer + 3) % 4;
+
+  const cutIndex = 40 + Math.floor(r() * 29);          // roughly half
+  const cutCard = deck.splice(cutIndex - 1, 1)[0];
+  const hands = [[], [], [], []];
+  let faceUp = null;
+  if (isJoker(cutCard)) hands[cutter].push(cutCard); else faceUp = cutCard;
+
+  for (let step = 0; step < 4; step++) {
+    const seat = (first + step) % 4;
+    let count = step === 0 ? 3 : 2;
+    if (seat === cutter && isJoker(cutCard)) count -= 1;
+    for (let k = 0; k < count; k++) hands[seat].push(deck.shift());
+  }
+  for (let round = 0; round < 6; round++)
+    for (let step = 0; step < 4; step++) {
+      const seat = (first + step) % 4;
+      hands[seat].push(deck.shift());
+      hands[seat].push(deck.shift());
+    }
+  if (faceUp) deck.push(faceUp);
+  return { hands, drawPile: deck, faceUpBottomCard: faceUp, dealer, firstPlayer: first, cutter };
+}
+
+// ---------- Melds ----------
+
+function positionPoints(p) {
+  if (p === 1) return 1;
+  if (p >= 2 && p <= 9) return p;
+  return 10;
+}
+
+/** A set: 3 or 4 cards of the same rank, all in different suits. Jokers fill the gaps. */
+function makeSet(cards) {
+  if (cards.length !== 3 && cards.length !== 4) return null;
+  const naturals = cards.filter((c) => !isJoker(c));
+  if (naturals.length === 0) return null;
+  const rank = naturals[0].rank;
+  if (!naturals.every((c) => c.rank === rank)) return null;
+  const suits = naturals.map((c) => c.suit);
+  if (new Set(suits).size !== suits.length) return null;
+  const perCard = rank === 1 ? 10 : positionPoints(rank);
+  return { kind: 'set', cards: cards.slice(), positions: [], points: perCard * cards.length };
+}
+
+/** Every way these cards can make a run (bridge): same suit, in order, ace low or high, 3 to 14 cards. */
+function makeRuns(cards) {
+  const n = cards.length;
+  if (n < 3 || n > 14) return [];
+  const naturals = cards.filter((c) => !isJoker(c));
+  const jokers = cards.filter(isJoker);
+  if (naturals.length === 0) return [];
+  const suit = naturals[0].suit;
+  if (!naturals.every((c) => c.suit === suit)) return [];
+
+  const results = [];
+  for (let start = 1; start <= 15 - n; start++) {
+    const end = start + n - 1;
+    const slots = new Array(n).fill(null);
+    const place = (index) => {
+      if (index === naturals.length) {
+        const left = jokers.slice();
+        const ordered = [], positions = [];
+        let total = 0;
+        for (let i = 0; i < n; i++) {
+          const position = start + i;
+          ordered.push(slots[i] !== null ? slots[i] : left.pop());
+          positions.push(position);
+          total += positionPoints(position);
+        }
+        results.push({ kind: 'run', cards: ordered, positions, points: total });
+        return;
+      }
+      const card = naturals[index];
+      const options = card.rank === 1 ? [1, 14] : [card.rank];
+      for (const position of options) {
+        if (position >= start && position <= end && slots[position - start] === null) {
+          slots[position - start] = card;
+          place(index + 1);
+          slots[position - start] = null;
+        }
+      }
+    };
+    place(0);
+  }
+  return results;
+}
+
+/** The valid meld with the most points these cards can make, or null. */
+function bestMeld(cards) {
+  const options = makeRuns(cards);
+  const set = makeSet(cards);
+  if (set) options.push(set);
+  let best = null;
+  for (const m of options) if (best === null || m.points > best.points) best = m;
+  return best;
+}
+
+// ---------- Opening ----------
+
+function popcount(x) { let c = 0; while (x) { x &= x - 1; c++; } return c; }
+function ctz(x) { return 31 - Math.clz32(x & -x); }
+
+/** Every valid meld inside a hand: { mask, meld }. Only groups of one suit or one rank (plus jokers) are tried. */
+function meldCandidates(hand) {
+  const n = hand.length;
+  const jokerPositions = [];
+  let naturalMask = 0;
+  for (let i = 0; i < n; i++) {
+    if (isJoker(hand[i])) jokerPositions.push(i); else naturalMask |= 1 << i;
+  }
+  const masks = new Set();
+  const addGroups = (positions, minSize, maxSize) => {
+    const count = positions.length;
+    if (count < minSize) return;
+    for (let pick = 1; pick < (1 << count); pick++) {
+      const size = popcount(pick);
+      if (size < minSize || size > maxSize) continue;
+      let mask = 0;
+      for (let k = 0; k < count; k++) if (pick & (1 << k)) mask |= 1 << positions[k];
+      if (mask & naturalMask) masks.add(mask);
+    }
+  };
+  for (const suit of SUITS) {
+    const suited = [];
+    for (let i = 0; i < n; i++) if (hand[i].suit === suit) suited.push(i);
+    if (suited.length) addGroups(suited.concat(jokerPositions), 3, 14);
+  }
+  for (let rank = 1; rank <= 13; rank++) {
+    const ranked = [];
+    for (let i = 0; i < n; i++) if (hand[i].rank === rank) ranked.push(i);
+    if (ranked.length) addGroups(ranked.concat(jokerPositions), 3, 4);
+  }
+  const result = [];
+  for (const mask of Array.from(masks).sort((a, b) => a - b)) {
+    const cards = [];
+    for (let i = 0; i < n; i++) if (mask & (1 << i)) cards.push(hand[i]);
+    const meld = bestMeld(cards);
+    if (meld) result.push({ mask, meld });
+  }
+  return result;
+}
+
+/**
+ * The way to lay down melds from this hand that gives the most points.
+ * mustUse: a card that has to be inside the melds (the thrown card you took to open).
+ * keepOneToDiscard: at least one card must stay out of the melds.
+ * Returns { melds, points, leftover, canOpen } or null when mustUse fits no meld.
+ */
+function bestOpening(hand, mustUse, keepOneToDiscard) {
+  if (keepOneToDiscard === undefined) keepOneToDiscard = true;
+  const n = hand.length;
+  if (n === 0 || n > 16) return null;
+  const full = (1 << n) - 1;
+  const candidates = meldCandidates(hand);
+
+  const byLow = [];
+  for (let i = 0; i < n; i++) byLow.push([]);
+  candidates.forEach((c, index) => byLow[ctz(c.mask)].push(index));
+
+  const best = new Int32Array(full + 1);
+  const choice = new Int32Array(full + 1).fill(-1);
+  for (let mask = 1; mask <= full; mask++) {
+    const low = ctz(mask);
+    best[mask] = best[mask & ~(1 << low)];
+    choice[mask] = -1;
+    for (const index of byLow[low]) {
+      const m = candidates[index].mask;
+      if ((m & mask) === m) {
+        const value = best[mask & ~m] + candidates[index].meld.points;
+        if (value > best[mask]) { best[mask] = value; choice[mask] = index; }
+      }
+    }
+  }
+  const collect = (start) => {
+    let mask = start;
+    const picked = [];
+    while (mask !== 0) {
+      const index = choice[mask];
+      if (index === -1) mask &= ~(1 << ctz(mask));
+      else { picked.push(candidates[index]); mask &= ~candidates[index].mask; }
+    }
+    return picked;
+  };
+
+  let bestValue = -1;
+  let bestPicked = [];
+  if (mustUse) {
+    const requiredIndex = hand.findIndex((c) => c.id === mustUse.id);
+    if (requiredIndex < 0) return null;
+    for (const candidate of candidates) {
+      if (!(candidate.mask & (1 << requiredIndex))) continue;
+      const rest = full & ~candidate.mask;
+      if (keepOneToDiscard) {
+        if (rest === 0) continue;
+        for (let d = 0; d < n; d++) {
+          if (!(rest & (1 << d))) continue;
+          const restMask = rest & ~(1 << d);
+          const value = candidate.meld.points + best[restMask];
+          if (value > bestValue) { bestValue = value; bestPicked = [candidate].concat(collect(restMask)); }
+        }
+      } else {
+        const value = candidate.meld.points + best[rest];
+        if (value > bestValue) { bestValue = value; bestPicked = [candidate].concat(collect(rest)); }
+      }
+    }
+    if (bestValue < 0) return null;
+  } else if (keepOneToDiscard) {
+    for (let d = 0; d < n; d++) {
+      const restMask = full & ~(1 << d);
+      if (best[restMask] > bestValue) { bestValue = best[restMask]; bestPicked = collect(restMask); }
+    }
+  } else {
+    bestValue = best[full];
+    bestPicked = collect(full);
+  }
+
+  let used = 0;
+  for (const c of bestPicked) used |= c.mask;
+  const leftover = hand.filter((_, i) => !(used & (1 << i)));
+  return { melds: bestPicked.map((c) => c.meld), points: bestValue, leftover, canOpen: bestValue >= OPENING_MINIMUM };
+}
+
+/** Can this 15-card hand lay down 14 cards in melds (51+ points) and keep one to throw? That is a Hand. */
+function handCloseGroups(hand) {
+  const n = hand.length;
+  if (n !== 15) return null;
+  const full = (1 << n) - 1;
+  const maskOf = [], pointsOf = [];
+  const byLow = [];
+  for (let i = 0; i < n; i++) byLow.push([]);
+  for (const c of meldCandidates(hand)) {
+    byLow[ctz(c.mask)].push(maskOf.length);
+    maskOf.push(c.mask);
+    pointsOf.push(c.meld.points);
+  }
+  const best = new Int32Array(full + 1).fill(-1);
+  const choice = new Int32Array(full + 1).fill(-1);
+  best[0] = 0;
+  for (let mask = 1; mask <= full; mask++) {
+    const low = ctz(mask);
+    for (const index of byLow[low]) {
+      const m = maskOf[index];
+      if ((m & mask) === m && best[mask & ~m] >= 0) {
+        const value = best[mask & ~m] + pointsOf[index];
+        if (value > best[mask]) { best[mask] = value; choice[mask] = index; }
+      }
+    }
+  }
+  let bestMask = -1, bestValue = -1;
+  for (let d = 0; d < n; d++) {
+    const mask = full & ~(1 << d);
+    if (best[mask] > bestValue) { bestValue = best[mask]; bestMask = mask; }
+  }
+  if (bestMask < 0 || bestValue < OPENING_MINIMUM) return null;
+  const groups = [];
+  let mask = bestMask;
+  while (mask !== 0) {
+    const m = maskOf[choice[mask]];
+    groups.push(hand.filter((_, i) => m & (1 << i)));
+    mask &= ~m;
+  }
+  return groups;
+}
+
+// ---------- Melds on the table ----------
+
+function makeTableMeld(meld, owner) {
+  return { owner, kind: meld.kind, cards: meld.cards.slice(), positions: meld.positions.slice() };
+}
+function runSuit(m) { const c = m.cards.find((x) => !isJoker(x)); return c ? c.suit : null; }
+function setRank(m) { const c = m.cards.find((x) => !isJoker(x)); return c ? c.rank : null; }
+
+/** "Sell" a card onto a meld. Returns the new meld, or null if it doesn't fit. */
+function adding(m, card, atHighEnd) {
+  if (atHighEnd === undefined) atHighEnd = true;
+  if (m.kind === 'run') {
+    if (m.cards.length >= 14) return null;
+    const low = m.positions[0], high = m.positions[m.positions.length - 1];
+    const fits = (position) => {
+      if (isJoker(card)) return true;
+      if (card.suit !== runSuit(m)) return false;
+      return card.rank === position || (card.rank === 1 && position === 14);
+    };
+    const lowFits = low > 1 && fits(low - 1);
+    const highFits = high < 14 && fits(high + 1);
+    if (highFits && (atHighEnd || !lowFits))
+      return { owner: m.owner, kind: m.kind, cards: m.cards.concat([card]), positions: m.positions.concat([high + 1]) };
+    if (lowFits)
+      return { owner: m.owner, kind: m.kind, cards: [card].concat(m.cards), positions: [low - 1].concat(m.positions) };
+    return null;
+  }
+  if (m.cards.length >= 4) return null;
+  if (!isJoker(card)) {
+    if (card.rank !== setRank(m)) return null;
+    if (m.cards.some((x) => !isJoker(x) && x.suit === card.suit)) return null;
+  }
+  return { owner: m.owner, kind: m.kind, cards: m.cards.concat([card]), positions: [] };
+}
+
+/**
+ * Take a joker off a meld by laying real card(s) in its place. Returns { meld, joker } or null.
+ * Run: the one real card the joker stands for.
+ * Set: a real card for EVERY suit the joker could be (that makes a full set of four).
+ */
+function takingJoker(m, given) {
+  if (!m.cards.some(isJoker)) return null;
+  if (given.length === 0 || given.some(isJoker)) return null;
+  if (m.kind === 'run') {
+    if (given.length !== 1 || given[0].suit !== runSuit(m)) return null;
+    const rank = given[0].rank;
+    const index = m.cards.findIndex((c, i) => isJoker(c) && (m.positions[i] === rank || (rank === 1 && m.positions[i] === 14)));
+    if (index < 0) return null;
+    const cards = m.cards.slice();
+    const joker = cards[index];
+    cards[index] = given[0];
+    return { meld: { owner: m.owner, kind: m.kind, cards, positions: m.positions.slice() }, joker };
+  }
+  const naturals = m.cards.filter((c) => !isJoker(c));
+  if (naturals.length === 0) return null;
+  const rank = naturals[0].rank;
+  const jokerCount = m.cards.length - naturals.length;
+  const missing = 4 - naturals.length;
+  if (given.length !== missing - jokerCount + 1) return null;
+  const onTable = new Set(naturals.map((c) => c.suit));
+  const givenSuits = given.map((c) => c.suit);
+  if (!given.every((c) => c.rank === rank)) return null;
+  if (new Set(givenSuits).size !== givenSuits.length) return null;
+  if (givenSuits.some((s) => onTable.has(s))) return null;
+  const removed = m.cards.find(isJoker);
+  const others = m.cards.filter((c) => isJoker(c) && c.id !== removed.id);
+  return { meld: { owner: m.owner, kind: m.kind, cards: naturals.concat(given, others), positions: [] }, joker: removed };
+}
+
+/** "E shitur": a card that fits a meld on the table. Jokers don't count here. */
+function isSellable(card, table) {
+  if (isJoker(card)) return false;
+  return table.some((m) => adding(m, card) !== null);
+}
+
+/** The cards the player may throw. A joker can't be thrown unless it is the last card.
+ *  A player who hasn't opened can't throw a card that fits a meld on the table. */
+function legalDiscards(hand, hasOpened, table) {
+  if (hand.length === 1) return hand.slice();
+  let allowed = hand.filter((c) => !isJoker(c));
+  if (!hasOpened) allowed = allowed.filter((c) => !isSellable(c, table));
+  return allowed.length === 0 ? hand.slice() : allowed;
+}
+
+// ---------- Closing and scoring ----------
+
+const CLOSER_POINTS = { normal: -40, normalWithJoker: -80, hand: -120, handWithJoker: -200, ngjyre: -800 };
+const isBigClose = (t) => t === 'hand' || t === 'handWithJoker' || t === 'ngjyre';
+
+/** A Ngjyre: 14 cards in one suit, ace low, 2 to king, ace high. No joker. */
+function isNgjyre(meld) {
+  return meld.kind === 'run' && meld.cards.length === 14 && !meld.cards.some(isJoker);
+}
+
+function closeType(turn) {
+  const withJoker = isJoker(turn.closingCard);
+  if (!turn.openedBeforeThisTurn && turn.ownMelds.some(isNgjyre)) return 'ngjyre';
+  if (!turn.openedBeforeThisTurn && turn.cardsPlacedOnOthersMelds.length === 0)
+    return withJoker ? 'handWithJoker' : 'hand';
+  return withJoker ? 'normalWithJoker' : 'normal';
+}
+
+function roundScores(closer, type, players) {
+  return players.map((p, seat) => {
+    if (seat === closer) return CLOSER_POINTS[type];
+    if (!p.hasOpened) return isBigClose(type) ? 200 : 100;
+    const total = p.cardsInHand.reduce((s, c) => s + handPoints(c), 0);
+    return isBigClose(type) ? total * 2 : total;
+  });
+}
+
+function dealerForRound(round, firstDealer) { return (firstDealer + round) % 4; }
+
+// ---------- One round ----------
+
+class MoveError extends Error {
+  constructor(code) { super(code); this.code = code; }
+}
+
+function removing(cards, hand) {
+  const remaining = hand.slice();
+  for (const card of cards) {
+    const index = remaining.findIndex((c) => c.id === card.id);
+    if (index < 0) return null;
+    remaining.splice(index, 1);
+  }
+  return remaining;
+}
+
+class GameRound {
+  constructor(deal) {
+    this.players = deal.hands.map((h) => ({ hand: h.slice(), hasOpened: false }));
+    this.drawPile = deal.drawPile.slice();
+    this.discardPile = [];
+    this.table = [];
+    this.bottomCard = deal.faceUpBottomCard;
+    this.current = deal.firstPlayer;
+    this.phase = 'firstDiscard';       // firstDiscard | draw | play | finished
+    this.turn = { openedBeforeThisTurn: false, meldsLaid: [], cardsPlacedOnOthersMelds: [] };
+    this.result = null;
+  }
+
+  clone() {
+    const copy = Object.create(GameRound.prototype);
+    Object.assign(copy, JSON.parse(JSON.stringify(this)));
+    return copy;
+  }
+
+  /** Do one move. If it is not allowed this throws a MoveError and nothing changes. */
+  perform(move) {
+    const next = this.clone();
+    next._apply(move);
+    Object.assign(this, next);
+  }
+
+  _apply(move) {
+    const t = move.type;
+    switch (this.phase) {
+      case 'finished':
+        throw new MoveError('wrongPhase');
+      case 'firstDiscard':
+        if (t !== 'discard') throw new MoveError('wrongPhase');
+        return this._discard(move.card);
+      case 'draw':
+        if (t === 'drawFromPile') return this._drawFromPile();
+        if (t === 'takeDiscard') return this._takeDiscard();
+        if (t === 'takeDiscardAndOpen') return this._takeDiscardAndOpen(move.groups);
+        if (t === 'takeBottomCard') return this._takeBottomCard();
+        throw new MoveError('wrongPhase');
+      case 'play':
+        if (t === 'layDown') return this._layDown(move.groups);
+        if (t === 'sell') return this._sell(move.card, move.meld, move.atHighEnd);
+        if (t === 'takeJoker') return this._takeJoker(move.meld, move.giving);
+        if (t === 'discard') return this._discard(move.card);
+        throw new MoveError('wrongPhase');
+    }
+  }
+
+  get me() { return this.players[this.current]; }
+
+  _drawFromPile() {
+    if (this.drawPile.length === 0) this._refill();
+    if (this.drawPile.length === 0) throw new MoveError('noCardsLeft');
+    this.me.hand.push(this.drawPile.shift());
+    this._forgetBottomCardIfGone();
+    this.phase = 'play';
+  }
+  _refill() {
+    if (this.discardPile.length <= 1) throw new MoveError('noCardsLeft');
+    const top = this.discardPile.pop();
+    this.drawPile = shuffle(this.discardPile.slice());
+    this.discardPile = [top];
+    this.bottomCard = null;
+  }
+  _forgetBottomCardIfGone() {
+    if (this.bottomCard) {
+      const last = this.drawPile[this.drawPile.length - 1];
+      if (!last || last.id !== this.bottomCard.id) this.bottomCard = null;
+    }
+  }
+  _takeDiscard() {
+    if (!this.me.hasOpened) throw new MoveError('mustOpenFirst');
+    if (this.discardPile.length === 0) throw new MoveError('discardPileEmpty');
+    this.me.hand.push(this.discardPile.pop());
+    this.phase = 'play';
+  }
+  _takeDiscardAndOpen(groups) {
+    if (this.me.hasOpened) throw new MoveError('wrongPhase');
+    if (this.discardPile.length === 0) throw new MoveError('discardPileEmpty');
+    const card = this.discardPile[this.discardPile.length - 1];
+    if (!groups.some((g) => g.some((c) => c.id === card.id))) throw new MoveError('discardMustBeInMelds');
+    this.discardPile.pop();
+    this.me.hand.push(card);
+    this._layDown(groups);
+    this.phase = 'play';
+  }
+  _takeBottomCard() {
+    const last = this.drawPile[this.drawPile.length - 1];
+    if (!this.bottomCard || !last || last.id !== this.bottomCard.id) throw new MoveError('noBottomCard');
+    if (this.me.hasOpened) throw new MoveError('bottomCardIsNotAHand');
+    const hand = this.me.hand.concat([this.bottomCard]);
+    if (!handCloseGroups(hand)) throw new MoveError('bottomCardIsNotAHand');
+    this.drawPile.pop();
+    this.me.hand = hand;
+    this.bottomCard = null;
+    this.phase = 'play';
+  }
+  _layDown(groups) {
+    if (!groups || groups.length === 0) throw new MoveError('notAValidMeld');
+    let remaining = this.me.hand;
+    const melds = [];
+    for (const group of groups) {
+      const left = removing(group, remaining);
+      if (left === null) throw new MoveError('cardNotInHand');
+      const meld = bestMeld(group);
+      if (meld === null) throw new MoveError('notAValidMeld');
+      remaining = left;
+      melds.push(meld);
+    }
+    if (remaining.length === 0) throw new MoveError('mustKeepOneCard');
+    if (!this.me.hasOpened) {
+      const total = melds.reduce((s, m) => s + m.points, 0);
+      if (total < OPENING_MINIMUM) throw new MoveError('notEnoughToOpen');
+      this.me.hasOpened = true;
+    }
+    this.me.hand = remaining;
+    for (const meld of melds) this.table.push(makeTableMeld(meld, this.current));
+    this.turn.meldsLaid = this.turn.meldsLaid.concat(melds);
+  }
+  _sell(card, index, atHighEnd) {
+    if (!this.me.hasOpened) throw new MoveError('mustOpenFirst');
+    if (!(index >= 0 && index < this.table.length)) throw new MoveError('badMeldIndex');
+    const remaining = removing([card], this.me.hand);
+    if (remaining === null) throw new MoveError('cardNotInHand');
+    if (remaining.length === 0) throw new MoveError('mustKeepOneCard');
+    const updated = adding(this.table[index], card, atHighEnd === undefined ? true : atHighEnd);
+    if (updated === null) throw new MoveError('cardCantBeSold');
+    if (this.table[index].owner !== this.current) this.turn.cardsPlacedOnOthersMelds.push(card);
+    this.table[index] = updated;
+    this.me.hand = remaining;
+  }
+  _takeJoker(index, giving) {
+    if (!this.me.hasOpened) throw new MoveError('mustOpenFirst');
+    if (!(index >= 0 && index < this.table.length)) throw new MoveError('badMeldIndex');
+    const remaining = removing(giving, this.me.hand);
+    if (remaining === null) throw new MoveError('cardNotInHand');
+    const swap = takingJoker(this.table[index], giving);
+    if (swap === null) throw new MoveError('cannotTakeJoker');
+    if (this.table[index].owner !== this.current) this.turn.cardsPlacedOnOthersMelds.push(...giving);
+    this.table[index] = swap.meld;
+    this.me.hand = remaining.concat([swap.joker]);
+  }
+  _discard(card) {
+    const hand = this.me.hand;
+    if (!hand.some((c) => c.id === card.id)) throw new MoveError('cardNotInHand');
+    const allowed = legalDiscards(hand, this.me.hasOpened, this.table);
+    if (!allowed.some((c) => c.id === card.id)) throw new MoveError('illegalDiscard');
+    this.me.hand = hand.filter((c) => c.id !== card.id);
+    if (this.me.hand.length === 0) this._closeRound(card);
+    else {
+      this.discardPile.push(card);
+      this._startTurn((this.current + 1) % 4);
+    }
+  }
+  _startTurn(seat) {
+    this.current = seat;
+    this.phase = 'draw';
+    this.turn = { openedBeforeThisTurn: this.players[seat].hasOpened, meldsLaid: [], cardsPlacedOnOthersMelds: [] };
+  }
+  _closeRound(closingCard) {
+    this.discardPile.push(closingCard);
+    const type = closeType({
+      openedBeforeThisTurn: this.turn.openedBeforeThisTurn,
+      ownMelds: this.turn.meldsLaid,
+      cardsPlacedOnOthersMelds: this.turn.cardsPlacedOnOthersMelds,
+      closingCard,
+    });
+    const states = this.players.map((p) => ({ hasOpened: p.hasOpened, cardsInHand: p.hand }));
+    this.result = { closer: this.current, closeType: type, scores: roundScores(this.current, type, states) };
+    this.phase = 'finished';
+  }
+}
+
+// ---------- The match: 8 rounds ----------
+
+class ZholMatch {
+  constructor() {
+    this.firstDealer = Math.floor(random() * 4);          // the first dealer is random
+    this.totals = [0, 0, 0, 0];
+    this.roundsPlayed = 0;
+    this.round = new GameRound(dealRound(this.firstDealer));
+  }
+  get isFinished() { return this.roundsPlayed >= TOTAL_ROUNDS; }
+  get leaders() {
+    const lowest = Math.min(...this.totals);
+    return this.totals.map((t, i) => (t === lowest ? i : -1)).filter((i) => i >= 0);
+  }
+  get dealer() { return dealerForRound(this.roundsPlayed, this.firstDealer); }
+  /** Call when the round is finished: adds its scores and deals the next round. */
+  startNextRound() {
+    if (!this.round.result || this.isFinished) return;
+    for (let s = 0; s < 4; s++) this.totals[s] += this.round.result.scores[s];
+    this.roundsPlayed += 1;
+    if (!this.isFinished) this.round = new GameRound(dealRound(dealerForRound(this.roundsPlayed, this.firstDealer)));
+  }
+}
+
+// ---------- The bot ----------
+
+function rankDistance(a, b) {
+  let d = Math.abs(a - b);
+  if (a === 1) d = Math.min(d, Math.abs(14 - b));
+  if (b === 1) d = Math.min(d, Math.abs(a - 14));
+  return d;
+}
+
+function usefulness(card, hand) {
+  if (isJoker(card)) return 100;
+  let score = 0;
+  for (const other of hand) {
+    if (other.id === card.id || isJoker(other)) continue;
+    if (other.rank === card.rank && other.suit !== card.suit) score += 2;
+    if (other.suit === card.suit) {
+      const d = rankDistance(card.rank, other.rank);
+      if (d === 1) score += 3; else if (d === 2) score += 2;
+    }
+  }
+  return score;
+}
+
+function chooseDiscard(round) {
+  const p = round.players[round.current];
+  const allowed = legalDiscards(p.hand, p.hasOpened, round.table);
+  let best = null, bestU = 0;
+  for (const c of allowed) {
+    const u = usefulness(c, p.hand);
+    if (best === null || u < bestU || (u === bestU && handPoints(c) > handPoints(best))) { best = c; bestU = u; }
+  }
+  return best || p.hand[0];
+}
+
+function jokerMove(round, hand) {
+  for (let index = 0; index < round.table.length; index++) {
+    const meld = round.table[index];
+    if (!meld.cards.some(isJoker)) continue;
+    if (meld.kind === 'run') {
+      for (const card of hand) {
+        if (!isJoker(card) && takingJoker(meld, [card])) return { type: 'takeJoker', meld: index, giving: [card] };
+      }
+    } else {
+      const onTable = new Set(meld.cards.filter((c) => !isJoker(c)).map((c) => c.suit));
+      const rank = setRank(meld);
+      const candidates = [];
+      for (const card of hand) {
+        if (isJoker(card) || card.rank !== rank || onTable.has(card.suit)) continue;
+        if (!candidates.some((c) => c.suit === card.suit)) candidates.push(card);
+      }
+      for (let size = Math.min(3, candidates.length); size >= 1; size--) {
+        const giving = candidates.slice(0, size);
+        if (takingJoker(meld, giving)) return { type: 'takeJoker', meld: index, giving };
+      }
+    }
+  }
+  return null;
+}
+
+function sellMove(round, hand) {
+  if (hand.length <= 1) return null;
+  const ordered = hand.filter((c) => !isJoker(c)).concat(hand.filter(isJoker));
+  for (const card of ordered)
+    for (let index = 0; index < round.table.length; index++)
+      if (adding(round.table[index], card) !== null) return { type: 'sell', card, meld: index, atHighEnd: true };
+  return null;
+}
+
+/** The next move for the player whose turn it is, or null when the round is over. */
+function botNextMove(round) {
+  if (round.phase === 'finished') return null;
+  const p = round.players[round.current];
+  const hand = p.hand;
+  if (round.phase === 'firstDiscard') return { type: 'discard', card: chooseDiscard(round) };
+
+  if (round.phase === 'draw') {
+    const top = round.discardPile[round.discardPile.length - 1];
+    if (top) {
+      if (!p.hasOpened) {
+        const plan = bestOpening(hand.concat([top]), top);
+        if (plan && plan.canOpen) return { type: 'takeDiscardAndOpen', groups: plan.melds.map((m) => m.cards) };
+      } else if (isSellable(top, round.table) || bestOpening(hand.concat([top]), top) !== null) {
+        return { type: 'takeDiscard' };
+      }
+    }
+    if (!p.hasOpened && round.bottomCard && handCloseGroups(hand.concat([round.bottomCard])) !== null)
+      return { type: 'takeBottomCard' };
+    return { type: 'drawFromPile' };
+  }
+
+  // play
+  if (!p.hasOpened) {
+    const plan = bestOpening(hand);
+    if (plan && plan.canOpen) return { type: 'layDown', groups: plan.melds.map((m) => m.cards) };
+    return { type: 'discard', card: chooseDiscard(round) };
+  }
+  const plan = bestOpening(hand);
+  if (plan && plan.points > 0) return { type: 'layDown', groups: plan.melds.map((m) => m.cards) };
+  const joker = jokerMove(round, hand);
+  if (joker) return joker;
+  const sell = sellMove(round, hand);
+  if (sell) return sell;
+  return { type: 'discard', card: chooseDiscard(round) };
+}
+
+/** The simplest legal move, used if a chosen move is refused so the game never hangs. */
+function botFallbackMove(round) {
+  if (round.phase === 'draw') return { type: 'drawFromPile' };
+  if (round.phase === 'firstDiscard' || round.phase === 'play') {
+    const p = round.players[round.current];
+    const allowed = legalDiscards(p.hand, p.hasOpened, round.table);
+    if (allowed.length) return { type: 'discard', card: allowed[0] };
+  }
+  return null;
+}
+
+/** Does ONE bot move for the current player. Returns the move that was done (or null). */
+function botPlayOneMove(round) {
+  const move = botNextMove(round);
+  if (move) {
+    try { round.perform(move); return move; } catch (e) { if (!(e instanceof MoveError)) throw e; }
+  }
+  const fallback = botFallbackMove(round);
+  if (fallback) { try { round.perform(fallback); return fallback; } catch (e) { if (!(e instanceof MoveError)) throw e; } }
+  return null;
+}
+
+return {
+  SUITS, OPENING_MINIMUM, TOTAL_ROUNDS, CLOSER_POINTS,
+  setRandom, shuffle, isJoker, handPoints,
+  makeFullDeck, dealRound,
+  positionPoints, makeSet, makeRuns, bestMeld,
+  meldCandidates, bestOpening, handCloseGroups,
+  makeTableMeld, adding, takingJoker, isSellable, legalDiscards, runSuit, setRank,
+  isNgjyre, closeType, roundScores, dealerForRound,
+  MoveError, GameRound, ZholMatch,
+  botNextMove, botFallbackMove, botPlayOneMove,
+};
+}));
+
+</script>
+<script>
+(function () {
+'use strict';
+
+const Z = window.Zhol;
+const SUIT_SYMBOL = { hearts: '♥', diamonds: '♦', clubs: '♣', spades: '♠' };
+const TEXT_STYLE = '\uFE0E';                    // asks the phone to draw ♥ as text, not as an emoji
+const AREAS = ['bottom', 'right', 'top', 'left'];
+const BOT_DELAY = (typeof window.ZHOL_BOT_DELAY === 'number') ? window.ZHOL_BOT_DELAY : 650;
+const FLY_MS = 420;
+const SOLO_NAMES = ['Ti', 'Besnik', 'Drita', 'Arben'];
+
+const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const rankText = (r) => (r === 1 ? 'A' : r === 11 ? 'J' : r === 12 ? 'Q' : r === 13 ? 'K' : String(r));
+const cardText = (c) => (Z.isJoker(c) ? 'Xhoker' : rankText(c.rank) + SUIT_SYMBOL[c.suit]);
+
+// ============================================================
+// Albanian texts
+// ============================================================
+
+const ERR = {
+  wrongPhase: 'Këtë nuk mund ta bësh tani.',
+  cardNotInHand: 'Kjo letër nuk është në dorën tënde.',
+  notAValidMeld: 'Këto letra nuk bëjnë kombinim.',
+  notEnoughToOpen: 'Të duhen 51 pikë për të hapur.',
+  mustKeepOneCard: 'Mbaj një letër për ta hedhur.',
+  mustOpenFirst: 'Duhet të hapësh më parë.',
+  discardPileEmpty: 'Nuk ka letër të hedhur për të marrë.',
+  discardMustBeInMelds: 'Letra e hedhur duhet të jetë në kombinimet e tua.',
+  noBottomCard: 'Nuk ka letër poshtë pakos.',
+  bottomCardIsNotAHand: 'Letra poshtë pakos merret vetëm për Dorë.',
+  noCardsLeft: 'Nuk ka më letra për të marrë.',
+  badMeldIndex: 'Ky kombinim nuk ekziston.',
+  cardCantBeSold: 'Kjo letër nuk shkon këtu.',
+  cannotTakeJoker: 'Me këto letra nuk mund ta marrësh xhokerin.',
+  illegalDiscard: 'Këtë letër nuk mund ta hedhësh: është xhoker, ose është e shitur (shkon në një kombinim në tavolinë).',
+  noGame: 'Nuk u gjet asnjë lojë me këtë kod.',
+  started: 'Kjo lojë ka filluar tashmë.',
+  full: 'Loja është plot (4 lojtarë).',
+  noName: 'Shkruaj emrin tënd.',
+  notHost: 'Këtë mund ta bëjë vetëm ai që krijoi lojën.',
+  badToken: 'Nuk je më në këtë lojë.',
+  notYourTurn: 'Nuk është radha jote.',
+  notStarted: 'Loja nuk ka filluar ende.',
+  network: 'Nuk ka lidhje me serverin. Provo përsëri.',
+  generic: 'Ky veprim nuk lejohet.',
+};
+
+function describe(ev) {
+  const you = ev.seat === A().mySeat();
+  const name = esc(A().names()[ev.seat]);
+  const c = ev.card ? cardText(ev.card) : '';
+  switch (ev.type) {
+    case 'drawFromPile': return you ? 'Ti more ' + c + '.' : name + ' mori një letër.';
+    case 'takeDiscard': return (you ? 'Ti more ' : name + ' mori ') + c + '.';
+    case 'takeDiscardAndOpen': return you ? 'Ti more ' + c + ' dhe hape!' : name + ' mori ' + c + ' dhe hapi!';
+    case 'takeBottomCard': return (you ? 'Ti more' : name + ' mori') + ' letrën poshtë pakos. Dorë!';
+    case 'layDown': return (you ? 'Ti shtrove ' : name + ' shtroi ') + ev.count + (ev.count === 1 ? ' kombinim.' : ' kombinime.');
+    case 'sell': return (you ? 'Ti shite ' : name + ' shiti ') + c + '.';
+    case 'takeJoker': return (you ? 'Ti more' : name + ' mori') + ' një xhoker!';
+    case 'discard': return (you ? 'Ti hodhe ' : name + ' hodhi ') + c + '.';
+    default: return '';
+  }
+}
+
+// ============================================================
+// State of this phone
+// ============================================================
+
+const ui = {
+  screen: 'home',              // home | menu | create | join | lobby | game
+  mode: null,                  // 'solo' | 'online'
+  name: '', code: '', formError: '', lobbyNote: '',
+  selected: new Set(), staged: [], openingWithDiscard: false,
+  sortMode: 'suit', order: [], orderKey: null,
+  message: '', lastAction: '', newCardId: null, scrollToNew: false,
+  canTakeBottom: false, canOpenWithDiscard: false,
+  chooser: null, showHelp: false, busy: false,
+  lastRects: null, lastEventSeq: 0,
+};
+try {
+  ui.name = localStorage.getItem('zhol.name') || '';
+  const sm = localStorage.getItem('zhol.sortMode'); if (sm === 'suit' || sm === 'rank') ui.sortMode = sm;
+} catch (e) { /* storage may be blocked */ }
+function saveLocal(key, value) { try { if (value === null) localStorage.removeItem(key); else localStorage.setItem(key, value); } catch (e) { /* ignore */ } }
+
+// ============================================================
+// Playing against the computer (on this phone only)
+// ============================================================
+
+const solo = {
+  match: null, token: 0, seq: 0,
+  start() { this.match = new Z.ZholMatch(); this.token++; this.seq = 0; },
+  round() { return this.match.round; },
+  roundKey() { return this.match.round; },
+  mySeat() { return 0; },
+  names() { return SOLO_NAMES; },
+  seatInfo(seat) { return { isBot: seat !== 0, connected: true, botPlaying: false }; },
+  totals() { return this.match.totals; },
+  dealer() { return this.match.dealer; },
+  roundsPlayed() { return this.match.roundsPlayed; },
+  isHost() { return true; },
+  hostName() { return 'Ti'; },
+  perform(seat, move) {
+    const r = this.match.round;
+    const topBefore = r.discardPile.length ? r.discardPile[r.discardPile.length - 1] : null;
+    const handBefore = new Set(r.players[seat].hand.map((c) => c.id));
+    try { r.perform(move); } catch (e) { if (e instanceof Z.MoveError) return e.code; throw e; }
+    let card = null;
+    if (['drawFromPile', 'takeDiscard', 'takeBottomCard'].includes(move.type)) card = r.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;
+    else if (move.type === 'takeDiscardAndOpen') card = topBefore;
+    else if (move.type === 'discard' || move.type === 'sell') card = move.card;
+    onGameChange({ seq: ++this.seq, seat, type: move.type, card, count: move.groups ? move.groups.length : 0 });
+    if (seat === 0) this.scheduleBots();
+    return true;
+  },
+  send(move) { return this.perform(0, move); },
+  scheduleBots() {
+    const token = ++this.token;
+    const step = () => {
+      if (token !== this.token || ui.mode !== 'solo') return;
+      const r = this.match.round;
+      if (r.phase === 'finished' || r.current === 0) { onGameChange(null); return; }
+      const seat = r.current;
+      const move = Z.botNextMove(r);
+      if (!move || this.perform(seat, move) !== true) {
+        const fb = Z.botFallbackMove(this.match.round);
+        if (fb) this.perform(seat, fb);
+      }
+      setTimeout(step, BOT_DELAY);
+    };
+    const r = this.match.round;
+    if (r.phase !== 'finished' && r.current !== 0) setTimeout(step, BOT_DELAY);
+  },
+  nextRound() {
+    if (this.match.roundsPlayed + 1 >= Z.TOTAL_ROUNDS) this.start(); else this.match.startNextRound();
+    this.token++;
+    resetTurnState(); ui.lastAction = '';
+    onGameChange(null);
+    this.scheduleBots();
+  },
+  takeover() { /* nothing to do alone */ },
+};
+
+// ============================================================
+// Playing with friends (through the server)
+// ============================================================
+
+const online = {
+  session: null,      // { code, token }
+  state: null,        // the last view from the server
+  view: null,         // a round-like object built from it
+  es: null, connected: true, lostTimer: null,
+
+  round() { return this.view; },
+  roundKey() { return this.state.code + ':' + this.state.game.roundId; },
+  mySeat() { return this.state.game.mySeat; },
+  names() { const g = this.state.game; return g.seats.map((s, i) => (i === g.mySeat ? 'Ti' : s.name)); },
+  seatInfo(seat) { const s = this.state.game.seats[seat]; return { isBot: s.isBot, connected: s.connected, botPlaying: s.botPlaying }; },
+  totals() { return this.state.game.totals; },
+  dealer() { return this.state.game.dealer; },
+  roundsPlayed() { return this.state.game.roundsPlayed; },
+  isHost() { return !!(this.state && this.state.you.isHost); },
+  hostName() { const h = this.state && this.state.players.find((p) => p.isHost); return h ? h.name : ''; },
+
+  /** Turns the server's view into the shape the table screen reads. */
+  buildView() {
+    const g = this.state.game;
+    if (!g) { this.view = null; return; }
+    this.view = {
+      phase: g.phase,
+      current: g.current,
+      players: g.seats.map((s, i) => ({
+        hand: i === g.mySeat ? g.myHand : Array.from({ length: s.handCount }, (_, k) => ({ id: -1 - i * 100 - k, rank: 0, suit: 'x' })),
+        hasOpened: s.hasOpened,
+      })),
+      table: g.table,
+      discardPile: g.discardTop ? [g.discardTop] : [],
+      drawPile: { length: g.drawCount },
+      bottomCard: g.bottomCard,
+      result: g.result,
+    };
+  },
+
+  async api(path, body) {
+    let res;
+    try {
+      res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    } catch (e) { const err = new Error('network'); err.code = 'network'; throw err; }
+    let data = {};
+    try { data = await res.json(); } catch (e) { /* empty */ }
+    if (!res.ok) { const err = new Error(data.error || 'generic'); err.code = data.error || 'generic'; throw err; }
+    return data;
+  },
+
+  connect(session) {
+    this.disconnect();
+    this.session = session;
+    saveLocal('zhol.session', JSON.stringify(session));
+    const es = new EventSource('/api/events?code=' + encodeURIComponent(session.code) + '&token=' + encodeURIComponent(session.token));
+    this.es = es;
+    es.onmessage = (msg) => { let s; try { s = JSON.parse(msg.data); } catch (e) { return; } this.onState(s); };
+    es.onopen = () => { clearTimeout(this.lostTimer); if (!this.connected) { this.connected = true; render(); } };
+    es.onerror = () => {
+      clearTimeout(this.lostTimer);
+      this.lostTimer = setTimeout(() => { if (this.es === es && es.readyState !== 1) { this.connected = false; render(); } }, 3000);
+      if (es.readyState === 2) {        // the server said no (the game is gone): back to the start
+        this.checkStillThere();
+      }
+    };
+  },
+  /** The live connection was closed by the server: is the game still there? If yes, connect again. */
+  async checkStillThere() {
+    const session = this.session;
+    if (!session) return;
+    try {
+      await this.api('/api/check', session);
+      setTimeout(() => { if (this.session === session) this.connect(session); }, 2000);
+    } catch (e) {
+      if (e.code === 'noGame' || e.code === 'badToken') { this.leaveLocal(); ui.formError = ERR[e.code]; render(); }
+      else setTimeout(() => { if (this.session === session) this.checkStillThere(); }, 3000);
+    }
+  },
+  disconnect() { if (this.es) { this.es.close(); this.es = null; } clearTimeout(this.lostTimer); this.connected = true; },
+  leaveLocal() {
+    this.disconnect();
+    this.session = null; this.state = null; this.view = null;
+    saveLocal('zhol.session', null);
+    ui.mode = null; ui.screen = 'home';
+  },
+
+  onState(s) {
+    const firstGameView = !!s.game && !(this.state && this.state.game);
+    this.state = s;
+    this.buildView();
+    if (!s.started) { ui.mode = 'online'; ui.screen = 'lobby'; render(); return; }
+    ui.mode = 'online'; ui.screen = 'game';
+    const ev = s.game.event;
+    if (firstGameView) { ui.lastEventSeq = ev ? ev.seq : 0; resetTurnState(); onGameChange(null); return; }
+    if (ev && ev.seq > ui.lastEventSeq) { ui.lastEventSeq = ev.seq; onGameChange(ev); }
+    else { if (!ev) { ui.lastEventSeq = 0; } onGameChange(null); }
+  },
+
+  serialize(move) {
+    const ids = (cards) => cards.map((c) => c.id);
+    const out = { type: move.type };
+    if (move.groups) out.groups = move.groups.map(ids);
+    if (move.card) out.card = move.card.id;
+    if (move.giving) out.giving = ids(move.giving);
+    if (move.meld !== undefined) out.meld = move.meld;
+    if (move.atHighEnd !== undefined) out.atHighEnd = move.atHighEnd;
+    return out;
+  },
+  send(move) {
+    return this.api('/api/move', { code: this.session.code, token: this.session.token, move: this.serialize(move) })
+      .then(() => true, (e) => e.code || 'generic');
+  },
+  nextRound() { this.api('/api/next', this.session).catch((e) => { ui.message = ERR[e.code] || ERR.generic; render(); }); },
+  takeover(seat, on) { this.api('/api/takeover', { code: this.session.code, token: this.session.token, seat, on }).catch(() => {}); },
+};
+
+const A = () => (ui.mode === 'solo' ? solo : online);
+
+// ============================================================
+// The table: helpers
+// ============================================================
+
+const round = () => A().round();
+const mySeat = () => A().mySeat();
+const me = () => round().players[mySeat()];
+const isMyTurn = () => round().phase !== 'finished' && round().current === mySeat();
+const topDiscard = () => { const p = round().discardPile; return p.length ? p[p.length - 1] : null; };
+const areaOf = (seat) => AREAS[(seat - mySeat() + 4) % 4];
+
+function resetTurnState() {
+  ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; ui.message = ''; ui.chooser = null; ui.newCardId = null;
+}
+
+function sortKey(card, mode) {
+  if (Z.isJoker(card)) return [99, 0];
+  const s = Z.SUITS.indexOf(card.suit);
+  return mode === 'rank' ? [card.rank, s] : [s, card.rank];
+}
+function sorted(cards, mode) {
+  return cards.slice().sort((a, b) => {
+    const ka = sortKey(a, mode), kb = sortKey(b, mode);
+    if (ka[0] !== kb[0]) return ka[0] - kb[0];
+    if (ka[1] !== kb[1]) return ka[1] - kb[1];
+    return a.id - b.id;
+  });
+}
+/** At the start of each round your hand is sorted once. After that it keeps YOUR order. */
+function ensureOrder() {
+  const key = A().roundKey();
+  if (ui.orderKey !== key) { ui.order = sorted(me().hand, ui.sortMode).map((c) => c.id); ui.orderKey = key; }
+}
+function sortHand(mode) {
+  ui.sortMode = mode; saveLocal('zhol.sortMode', mode);
+  ensureOrder();
+  ui.order = sorted(displayHand(), mode).map((c) => c.id);
+  render();
+}
+function displayHand() {
+  ensureOrder();
+  const cards = me().hand.slice();
+  if (ui.openingWithDiscard && topDiscard()) cards.push(topDiscard());
+  const pos = new Map(ui.order.map((id, i) => [id, i]));
+  const arrival = new Map(cards.map((c, i) => [c.id, i]));
+  return cards.sort((a, b) => {
+    const pa = pos.has(a.id) ? pos.get(a.id) : 100000 + arrival.get(a.id);
+    const pb = pos.has(b.id) ? pos.get(b.id) : 100000 + arrival.get(b.id);
+    return pa - pb;
+  });
+}
+function moveCard(id, toIndex) {
+  const row = availableHand().map((c) => c.id);
+  if (!row.includes(id)) return;
+  const others = row.filter((x) => x !== id);
+  others.splice(Math.max(0, Math.min(toIndex, others.length)), 0, id);
+  const rest = displayHand().map((c) => c.id).filter((x) => !others.includes(x));
+  ui.order = others.concat(rest);
+}
+function stagedIds() { const s = new Set(); ui.staged.forEach((g) => g.forEach((c) => s.add(c.id))); return s; }
+function availableHand() { const ids = stagedIds(); return displayHand().filter((c) => !ids.has(c.id)); }
+function selectedCards() { return availableHand().filter((c) => ui.selected.has(c.id)); }
+function meldPoints(group) { const m = Z.bestMeld(group); return m ? m.points : 0; }
+function stagedPoints() { return ui.staged.reduce((s, g) => s + meldPoints(g), 0); }
+function stagedContainsDiscard() { const t = topDiscard(); return !!t && ui.staged.some((g) => g.some((c) => c.id === t.id)); }
+function canLayDown() {
+  if (ui.staged.length === 0) return false;
+  if (!me().hasOpened && stagedPoints() < Z.OPENING_MINIMUM) return false;
+  if (ui.openingWithDiscard && !stagedContainsDiscard()) return false;
+  return true;
+}
+
+function meldActions(meld, index) {
+  const out = [];
+  if (!isMyTurn() || round().phase !== 'play' || !me().hasOpened) return out;
+  const sel = selectedCards();
+  if (sel.length === 0) return out;
+  if (sel.length === 1) {
+    const card = sel[0];
+    const high = Z.adding(meld, card, true);
+    if (high) {
+      const low = Z.adding(meld, card, false);
+      if (low && JSON.stringify(low.positions) !== JSON.stringify(high.positions)) {
+        out.push({ kind: 'sell', label: 'Vendose ' + cardText(card) + ' në fillim', move: { type: 'sell', card, meld: index, atHighEnd: false } });
+        out.push({ kind: 'sell', label: 'Vendose ' + cardText(card) + ' në fund', move: { type: 'sell', card, meld: index, atHighEnd: true } });
+      } else {
+        out.push({ kind: 'sell', label: 'Shite ' + cardText(card) + ' këtu', move: { type: 'sell', card, meld: index, atHighEnd: true } });
+      }
+    }
+  }
+  if (Z.takingJoker(meld, sel)) {
+    out.push({ kind: 'joker', label: 'Merr xhokerin (jep ' + sel.map(cardText).join(', ') + ')', move: { type: 'takeJoker', meld: index, giving: sel } });
+  }
+  return out;
+}
+
+function hint() {
+  const r = round();
+  if (r.phase === 'finished') return 'Raundi mbaroi.';
+  if (!isMyTurn()) {
+    const info = A().seatInfo(r.current);
+    return esc(A().names()[r.current]) + (info.isBot || info.botPlaying ? ' (kompjuteri)' : '') + ' po luan...';
+  }
+  if (r.phase === 'firstDiscard') return 'Ti fillon. Hidh një letër.';
+  if (r.phase === 'draw') {
+    if (ui.openingWithDiscard) return 'Bëj kombinime që përdorin letrën me kornizë portokalli, pastaj shtyp Hap.';
+    return me().hasOpened ? 'Radha jote: merr një letër nga pakoja ose letrën e hedhur.' : 'Radha jote: merr një letër nga pakoja.';
+  }
+  if (me().hasOpened) {
+    if (selectedCards().length > 0 && r.table.some((m, i) => meldActions(m, i).length > 0)) return 'Prek një kombinim që ndriçon.';
+    return 'Shtro kombinime, shit letra, merr xhokerë, pastaj hidh një letër.';
+  }
+  return 'Hap me kombinime prej 51 pikësh, ose thjesht hidh një letër.';
+}
+
+// ============================================================
+// Card animations
+// ============================================================
+
+const reduceMotion = (() => { try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } })();
+function rectOf(id) { const el = document.getElementById(id); return el ? el.getBoundingClientRect() : null; }
+function snapshot() {
+  if (ui.screen !== 'game') return null;
+  return { deck: rectOf('deck'), discard: rectOf('discard'), seats: [0, 1, 2, 3].map((s) => rectOf(s === mySeat() ? 'hand' : 'seat-' + s)) };
+}
+function fly(from, to, card) {
+  if (reduceMotion || !from || !to || !document.body.animate) return;
+  const holder = document.createElement('div');
+  holder.innerHTML = card ? cardHTML(card, 40) : backHTML(40);
+  const el = holder.firstChild;
+  el.classList.add('flying');
+  const x0 = from.left + from.width / 2 - 20, y0 = from.top + from.height / 2 - 29;
+  const x1 = to.left + to.width / 2 - 20, y1 = to.top + to.height / 2 - 29;
+  el.style.left = x0 + 'px'; el.style.top = y0 + 'px';
+  document.body.appendChild(el);
+  const anim = el.animate(
+    [{ transform: 'translate(0px, 0px) scale(1)', opacity: 1 },
+     { transform: 'translate(' + (x1 - x0) + 'px, ' + (y1 - y0) + 'px) scale(0.75)', opacity: 0.35 }],
+    { duration: FLY_MS, easing: 'ease-in-out' });
+  anim.onfinish = () => el.remove();
+  anim.oncancel = () => el.remove();
+}
+function animateEvent(ev, before) {
+  if (!before) return;
+  const after = snapshot();
+  if (!after) return;
+  const target = after.seats[ev.seat] || before.seats[ev.seat];
+  const showFace = ev.seat === mySeat();
+  switch (ev.type) {
+    case 'drawFromPile': fly(before.deck, target, showFace ? ev.card : null); break;
+    case 'takeBottomCard': fly(before.deck, target, ev.card); break;
+    case 'takeDiscard': case 'takeDiscardAndOpen': fly(before.discard, target, ev.card); break;
+    case 'discard': fly(before.seats[ev.seat], after.discard || before.discard, ev.card); break;
+    default: break;
+  }
+}
+
+/** Called after anything changed in the game (your move, a friend's move, a bot's move). */
+function onGameChange(ev) {
+  const before = ui.lastRects;
+  if (ev) {
+    ui.lastAction = describe(ev);
+    if (ev.seat === mySeat()) {
+      if (['drawFromPile', 'takeDiscard', 'takeBottomCard'].includes(ev.type) && ev.card) { ui.newCardId = ev.card.id; ui.scrollToNew = true; }
+      if (ev.type === 'discard') ui.newCardId = null;
+    }
+  }
+  if (round() && round().phase === 'finished') { ui.chooser = null; }
+  refreshDrawOptions();
+  render();
+  if (ev) animateEvent(ev, before);
+}
+
+function refreshDrawOptions() {
+  ui.canOpenWithDiscard = false; ui.canTakeBottom = false;
+  if (!round() || !isMyTurn() || round().phase !== 'draw' || me().hasOpened) return;
+  const top = topDiscard();
+  if (top) { const plan = Z.bestOpening(me().hand.concat([top]), top); ui.canOpenWithDiscard = !!(plan && plan.canOpen); }
+  if (round().bottomCard) ui.canTakeBottom = Z.handCloseGroups(me().hand.concat([round().bottomCard])) !== null;
+}
+
+// ============================================================
+// Your actions at the table
+// ============================================================
+
+function perform(move) {
+  if (ui.busy) return;
+  const done = (res) => {
+    ui.busy = false;
+    if (res !== true) { ui.message = ERR[res] || ERR.generic; render(); return; }
+    ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; ui.message = ''; ui.chooser = null;
+    render();
+  };
+  const res = A().send(move);
+  if (res && typeof res.then === 'function') { ui.busy = true; res.then(done); } else done(res);
+}
+
+function toggleCard(id) { if (ui.selected.has(id)) ui.selected.delete(id); else ui.selected.add(id); ui.message = ''; render(); }
+function makeMeld() {
+  const cards = selectedCards();
+  if (cards.length < 3) { ui.message = 'Zgjidh të paktën 3 letra për një kombinim.'; render(); return; }
+  if (!Z.bestMeld(cards)) { ui.message = 'Këto letra nuk bëjnë urë ose grup.'; render(); return; }
+  ui.staged.push(cards); ui.selected = new Set(); ui.message = ''; render();
+}
+function autoMeld() {
+  const hand = me().hand.slice();
+  let must;
+  if (ui.openingWithDiscard && topDiscard()) { must = topDiscard(); hand.push(must); }
+  const plan = Z.bestOpening(hand, must);
+  if (!plan || plan.melds.length === 0) { ui.message = 'Nuk gjej asnjë kombinim në dorën tënde.'; render(); return; }
+  ui.staged = plan.melds.map((m) => m.cards.slice()); ui.selected = new Set(); ui.message = ''; render();
+}
+function layDownAction() {
+  if (ui.staged.length === 0) return;
+  perform({ type: ui.openingWithDiscard ? 'takeDiscardAndOpen' : 'layDown', groups: ui.staged });
+}
+function throwSelected() {
+  const cards = selectedCards();
+  if (cards.length !== 1) { ui.message = 'Prek një letër për ta hedhur.'; render(); return; }
+  perform({ type: 'discard', card: cards[0] });
+}
+function tapMeld(index) {
+  const meld = round().table[index];
+  if (!meld || !isMyTurn()) return;
+  const options = meldActions(meld, index);
+  if (options.length === 1) { perform(options[0].move); return; }
+  if (options.length > 1) { ui.chooser = { options }; render(); return; }
+  if (round().phase !== 'play') ui.message = 'Merr një letër më parë.';
+  else if (!me().hasOpened) ui.message = 'Mund të shesësh letra dhe të marrësh xhokerë pasi të hapësh.';
+  else if (selectedCards().length === 0) ui.message = 'Zgjidh një letër, pastaj prek një kombinim për ta shitur.';
+  else ui.message = 'Kjo nuk shkon në këtë kombinim.';
+  render();
+}
+
+// ============================================================
+// Start window, joining, waiting room
+// ============================================================
+
+function startSolo() {
+  online.disconnect();
+  ui.mode = 'solo'; ui.screen = 'game';
+  solo.start();
+  resetTurnState(); ui.lastAction = ''; ui.orderKey = null;
+  onGameChange(null);
+  solo.scheduleBots();
+}
+
+async function createGame() {
+  const name = ui.name.trim();
+  if (!name) { ui.formError = ERR.noName; render(); return; }
+  saveLocal('zhol.name', name);
+  ui.formError = ''; ui.busy = true; render();
+  try {
+    const r = await online.api('/api/create', { name });
+    ui.busy = false;
+    ui.mode = 'online'; ui.screen = 'lobby'; ui.lobbyNote = '';
+    online.connect({ code: r.code, token: r.token });
+    render();
+  } catch (e) { ui.busy = false; ui.formError = ERR[e.code] || ERR.network; render(); }
+}
+
+async function joinGame() {
+  const name = ui.name.trim(), code = ui.code.trim().toUpperCase();
+  if (!code) { ui.formError = 'Shkruaj kodin e lojës.'; render(); return; }
+  if (!name) { ui.formError = ERR.noName; render(); return; }
+  saveLocal('zhol.name', name);
+  ui.formError = ''; ui.busy = true; render();
+  try {
+    const r = await online.api('/api/join', { code, name });
+    ui.busy = false;
+    ui.mode = 'online'; ui.screen = 'lobby'; ui.lobbyNote = '';
+    online.connect({ code: r.code, token: r.token });
+    render();
+  } catch (e) { ui.busy = false; ui.formError = ERR[e.code] || ERR.network; render(); }
+}
+
+async function startOnline() {
+  try { await online.api('/api/start', online.session); } catch (e) { ui.lobbyNote = ERR[e.code] || ERR.network; render(); }
+}
+
+async function leaveLobby() {
+  const s = online.session;
+  online.leaveLocal();
+  render();
+  if (s) { try { await online.api('/api/leave', s); } catch (e) { /* ignore */ } }
+}
+
+function goHome() {
+  if (ui.mode === 'online') online.leaveLocal();
+  solo.token++;
+  ui.mode = null; ui.screen = 'home'; ui.showHelp = false; ui.chooser = null;
+  render();
+}
+
+function shareLink() {
+  const link = location.origin + location.pathname + '?kod=' + online.session.code;
+  const text = 'Eja luaj Zhol me mua! Kodi: ' + online.session.code;
+  if (navigator.share) { navigator.share({ title: 'Zhol', text, url: link }).catch(() => {}); return; }
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text + ' ' + link).then(() => { ui.lobbyNote = 'Lidhja u kopjua. Dërgoja shokëve!'; render(); }, () => { ui.lobbyNote = link; render(); });
+    return;
+  }
+  ui.lobbyNote = link; render();
+}
+
+// ============================================================
+// Drawing the screens
+// ============================================================
+
+function btn(label, action, color, disabled, extra) {
+  return '<button class="act ' + color + '" data-action="' + action + '"' + (extra || '') + (disabled ? ' disabled' : '') + '>' + label + '</button>';
+}
+
+function homeHTML() {
+  return '<div class="screen home"><div class="logo">Zhol</div><div class="tagline">Loja shqiptare me letra</div>' +
+    '<div class="suits-row">♥' + TEXT_STYLE + ' ♠' + TEXT_STYLE + ' ♦' + TEXT_STYLE + ' ♣' + TEXT_STYLE + '</div>' +
+    btn('LUAJ', 'menu', 'yellow big-btn') +
+    (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') + '</div>';
+}
+
+function menuHTML() {
+  return '<div class="screen"><h1>Si do të luash?</h1>' +
+    btn('Krijo një lojë me shokët', 'toCreate', 'yellow big-btn') +
+    '<p class="muted">Ti merr një kod dhe ua dërgon shokëve.</p>' +
+    btn('Hyr në një lojë me kod', 'toJoin', 'orange big-btn') +
+    '<p class="muted">Një shok të ka dërguar një kod.</p>' +
+    btn('Luaj kundër kompjuterit', 'solo', 'green big-btn') +
+    '<p class="muted">Vetëm ti dhe tre lojtarë të kompjuterit.</p>' +
+    btn('Kthehu', 'home', 'gray') + '</div>';
+}
+
+function createHTML() {
+  return '<div class="screen"><h1>Krijo një lojë</h1><label>Emri yt<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="Shkruaj emrin"></label>' +
+    (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') +
+    btn(ui.busy ? 'Duke krijuar...' : 'Krijo lojën', 'create', 'yellow big-btn', ui.busy) + btn('Kthehu', 'menu', 'gray') + '</div>';
+}
+
+function joinHTML() {
+  return '<div class="screen"><h1>Hyr në një lojë</h1>' +
+    '<label>Kodi i lojës<input class="field code-field" data-field="code" maxlength="4" autocapitalize="characters" autocomplete="off" value="' + esc(ui.code) + '" placeholder="p.sh. K7P2"></label>' +
+    '<label>Emri yt<input class="field" data-field="name" maxlength="16" autocomplete="nickname" value="' + esc(ui.name) + '" placeholder="Shkruaj emrin"></label>' +
+    (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') +
+    btn(ui.busy ? 'Duke hyrë...' : 'Hyr', 'join', 'yellow big-btn', ui.busy) + btn('Kthehu', 'menu', 'gray') + '</div>';
+}
+
+function lobbyHTML() {
+  const s = online.state;
+  if (!s) return '<div class="screen"><h1>Duke u lidhur...</h1>' + btn('Kthehu', 'leaveLobby', 'gray') + '</div>';
+  let html = '<div class="screen lobby"><h1>Dhoma e pritjes</h1><div class="code-box"><span>Kodi i lojës</span><b>' + esc(s.code) + '</b></div>';
+  if (s.you.isHost) html += btn('Dërgo lidhjen shokëve', 'share', 'orange big-btn') + '<p class="muted">Ose thuaju kodin. Ata shtypin "Hyr në një lojë me kod".</p>';
+  html += '<h2>Lojtarët (' + s.players.length + ' nga 4)</h2><ul class="player-list">';
+  s.players.forEach((p) => {
+    html += '<li>' + (p.isHost ? '👑 ' : '') + '<b>' + esc(p.name) + '</b>' + (p.id === s.you.id ? ' <span class="badge">ti</span>' : '') +
+      (p.connected ? '' : ' <span class="badge off">jo në linjë</span>') + '</li>';
+  });
+  for (let i = s.players.length; i < 4; i++) html += '<li class="muted">Vend bosh: do ta luajë kompjuteri</li>';
+  html += '</ul>';
+  if (ui.lobbyNote) html += '<p class="warn">' + esc(ui.lobbyNote) + '</p>';
+  if (s.you.isHost) html += btn('Fillo lojën', 'startOnline', 'yellow big-btn');
+  else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' ta fillojë lojën...</p>';
+  html += btn('Dil', 'leaveLobby', 'gray');
+  if (!online.connected) html += '<p class="warn">Lidhja u ndërpre. Po lidhem përsëri...</p>';
+  return html + '</div>';
+}
+
+// ---------- the table ----------
+
+function cardHTML(card, w, opts) {
+  opts = opts || {};
+  const cls = ['card'];
+  if (Z.isJoker(card)) cls.push('joker'); else cls.push(card.suit === 'hearts' || card.suit === 'diamonds' ? 'red' : 'black');
+  if (opts.selected) cls.push('sel');
+  if (opts.highlight) cls.push('hi');
+  if (opts.isNew) cls.push('new');
+  if (w < 34) cls.push('small');
+  let inner;
+  if (Z.isJoker(card)) {
+    inner = '<span class="jk-star">★</span>' + (w < 34 ? (opts.stands ? '<span class="jk-stand">' + opts.stands + '</span>' : '') : '<span class="jk-text">XHOKER</span>');
+  } else {
+    const s = SUIT_SYMBOL[card.suit] + TEXT_STYLE;
+    inner = w < 34
+      ? '<span class="r">' + rankText(card.rank) + '</span><span class="s">' + s + '</span>'
+      : '<span class="big-suit">' + s + '</span><span class="idx">' + rankText(card.rank) + '<br>' + s + '</span>';
+  }
+  if (opts.isNew) inner += '<span class="new-tag">E RE</span>';
+  const attrs = opts.tap ? ' data-action="toggle" data-card="' + card.id + '"' : '';
+  return '<div class="' + cls.join(' ') + '" style="--w:' + w + 'px"' + attrs + '>' + inner + '</div>';
+}
+function backHTML(w, count) {
+  return '<div class="card back" style="--w:' + w + 'px">' + (count === undefined ? '' : '<span class="count">' + count + '</span>') + '</div>';
+}
+function emptySlotHTML(w) { return '<div class="card empty" style="--w:' + w + 'px"></div>'; }
+
+function headerHTML() {
+  const roundNo = Math.min(A().roundsPlayed() + 1, Z.TOTAL_ROUNDS);
+  return '<div class="header"><b class="title">Zhol</b><span>Raundi ' + roundNo + ' nga ' + Z.TOTAL_ROUNDS + '</span>' +
+    (ui.mode === 'online' ? '<span class="small-text">Kodi ' + esc(online.session.code) + '</span>' : '') +
+    '<button class="help-btn" data-action="help" aria-label="Ndihmë">?</button></div>';
+}
+
+function meldHTML(meld, index) {
+  const options = meldActions(meld, index);
+  const glow = options.some((o) => o.kind === 'joker') ? ' can-joker' : options.length ? ' can-sell' : '';
+  let html = '<div class="meld' + glow + '" data-action="meld" data-index="' + index + '">';
+  meld.cards.forEach((card, pos) => {
+    let stands = null;
+    if (Z.isJoker(card) && meld.kind === 'run' && pos < meld.positions.length) { const place = meld.positions[pos]; stands = rankText(place === 14 ? 1 : place); }
+    html += cardHTML(card, 24, { stands });
+  });
+  return html + '</div>';
+}
+
+function plateHTML(seat) {
+  const r = round(), p = r.players[seat];
+  const info = A().seatInfo(seat);
+  const turn = r.phase !== 'finished' && r.current === seat;
+  let badges = '';
+  if (A().dealer() === seat) badges += '<span class="badge">Ndarësi</span>';
+  if (p.hasOpened) badges += '<span class="badge open">Hapur</span>';
+  if (ui.mode === 'online' && seat !== mySeat()) {
+    if (info.isBot) badges += '<span class="badge">Kompjuter</span>';
+    else if (info.botPlaying) badges += '<span class="badge off">Luan kompjuteri</span>';
+    else if (!info.connected) badges += '<span class="badge off">Jo në linjë</span>';
+  }
+  let fan = '';
+  if (seat !== mySeat()) {
+    fan = '<div class="fan">';
+    for (let k = 0; k < Math.min(p.hand.length, 7); k++) fan += '<div class="mini-back"></div>';
+    fan += '<span class="fan-count">' + p.hand.length + '</span></div>';
+  }
+  let takeover = '';
+  if (ui.mode === 'online' && online.isHost() && seat !== mySeat() && !info.isBot && (!info.connected || info.botPlaying)) {
+    takeover = info.botPlaying ? '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="0">Lojtari luan vetë</button>'
+                               : '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="1">Lëre kompjuterin të luajë</button>';
+  }
+  return '<div class="plate' + (turn ? ' turn' : '') + '" id="seat-' + seat + '"><div class="plate-name"><b>' + esc(A().names()[seat]) + '</b>' + badges + '</div>' +
+    fan + '<div class="plate-score">Pikët ' + A().totals()[seat] + '</div>' + takeover + '</div>';
+}
+
+function zoneHTML(seat) {
+  const melds = [];
+  round().table.forEach((m, i) => { if (m.owner === seat) melds.push(meldHTML(m, i)); });
+  return '<div class="zone zone-' + areaOf(seat) + '">' + plateHTML(seat) + '<div class="zone-melds">' + melds.join('') + '</div></div>';
+}
+
+function centerHTML() {
+  const r = round(), top = topDiscard();
+  let deck = '<div class="deck" id="deck">';
+  if (r.bottomCard) deck += '<div class="bottom-card">' + cardHTML(r.bottomCard, 34) + '</div>';
+  deck += r.drawPile.length ? '<div class="deck-stack">' + backHTML(40, r.drawPile.length) + '</div>' : emptySlotHTML(40);
+  deck += '</div>';
+  return '<div class="center"><div class="center-piles">' + deck +
+    '<div class="thrown" id="discard">' + (top ? cardHTML(top, 40) : emptySlotHTML(40)) + '</div></div>' +
+    '<div class="center-labels"><span>Pakoja</span><span>E hedhur</span></div>' +
+    (r.bottomCard ? '<div class="center-note">Poshtë pakos: ' + cardText(r.bottomCard) + '</div>' : '') + '</div>';
+}
+
+function tableHTML() {
+  const order = [0, 1, 2, 3];
+  return '<div class="table" id="table">' + order.map(zoneHTML).join('') + centerHTML() + '</div>';
+}
+
+function statusHTML() {
+  let html = '<div class="status"><b>' + hint() + '</b>';
+  if (ui.message) html += '<b class="warn">' + ui.message + '</b>';
+  else if (ui.lastAction) html += '<span class="muted">' + ui.lastAction + '</span>';
+  if (ui.mode === 'online' && !online.connected) html += '<b class="warn">Lidhja u ndërpre. Po lidhem përsëri...</b>';
+  return html + '</div>';
+}
+
+function stagedHTML() {
+  if (ui.staged.length === 0) return '';
+  let html = '<div class="staged">';
+  ui.staged.forEach((group, i) => {
+    html += '<div class="staged-row"><div class="meld">' + group.map((c) => cardHTML(c, 24)).join('') + '</div><b>' + meldPoints(group) +
+      '</b><button class="mini" data-action="unstage" data-index="' + i + '">✕</button></div>';
+  });
+  html += '<b class="warn">Pikët e kombinimeve: ' + stagedPoints() + (me().hasOpened ? '' : ' nga ' + Z.OPENING_MINIMUM + ' që duhen') + '</b></div>';
+  return html;
+}
+
+function actionsHTML() {
+  if (!isMyTurn()) return '';
+  const r = round();
+  let html = '<div class="actions">';
+  if (r.phase === 'draw') {
+    if (ui.openingWithDiscard) {
+      html += btn('Gjej kombinimet', 'auto', 'green') + btn('Bëj kombinim', 'makeMeld', 'yellow', selectedCards().length < 3) +
+              btn('Hap', 'layDown', 'orange', !canLayDown() || ui.busy) + btn('Anulo', 'cancelOpen', 'gray');
+    } else {
+      html += btn('Merr nga pakoja', 'draw', 'yellow', ui.busy);
+      const top = topDiscard();
+      if (top) {
+        html += me().hasOpened ? btn('Merr ' + cardText(top), 'takeDiscard', 'orange', ui.busy)
+                               : btn('Hap me ' + cardText(top), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
+      }
+      if (!me().hasOpened && r.bottomCard) html += btn('Letra poshtë (Dorë)', 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
+    }
+  } else {
+    if (r.phase === 'play') {
+      html += btn('Gjej kombinimet', 'auto', 'green') + btn('Bëj kombinim', 'makeMeld', 'yellow', selectedCards().length < 3) +
+              btn(me().hasOpened ? 'Shtro' : 'Hap', 'layDown', 'orange', !canLayDown() || ui.busy);
+    }
+    html += btn('Hidh letrën', 'throw', 'red', selectedCards().length !== 1 || ui.busy);
+  }
+  return html + '</div>';
+}
+
+function handHTML() {
+  const cards = availableHand();
+  let html = '<div class="hand-box"><div class="hand-head"><span>Letrat e tua (' + cards.length + ')</span>' +
+    '<span class="drag-tip">Tërhiqi letrat për t\'i renditur</span><span><button class="link" data-action="sortSuit">Sipas shenjës</button>' +
+    '<button class="link" data-action="sortRank">Sipas numrit</button></span></div><div class="hand" id="hand">';
+  cards.forEach((card) => {
+    html += cardHTML(card, 52, {
+      selected: ui.selected.has(card.id),
+      highlight: ui.openingWithDiscard && topDiscard() && card.id === topDiscard().id,
+      isNew: card.id === ui.newCardId,
+      tap: true,
+    });
+  });
+  return html + '</div></div>';
+}
+
+function closeText(result) {
+  const you = result.closer === mySeat();
+  const n = esc(A().names()[result.closer]);
+  switch (result.closeType) {
+    case 'normal': return you ? 'Ti e mbylle lojën.' : n + ' e mbylli lojën.';
+    case 'normalWithJoker': return you ? 'Ti e mbylle lojën me xhoker.' : n + ' e mbylli lojën me xhoker.';
+    case 'hand': return you ? 'Ti e mbylle me Dorë!' : n + ' e mbylli me Dorë!';
+    case 'handWithJoker': return you ? 'Ti e mbylle me Dorë dhe xhoker!' : n + ' e mbylli me Dorë dhe xhoker!';
+    case 'ngjyre': return you ? 'Ti bëre Ngjyrë!' : n + ' bëri Ngjyrë!';
+    default: return '';
+  }
+}
+
+function resultHTML() {
+  const r = round();
+  if (r.phase !== 'finished' || !r.result) return '';
+  const result = r.result;
+  const played = A().roundsPlayed();
+  const over = played + 1 >= Z.TOTAL_ROUNDS;
+  const totals = A().totals().map((t, s) => t + result.scores[s]);
+  const names = A().names();
+  let winner = '';
+  if (over) {
+    const lowest = Math.min.apply(null, totals);
+    const leaders = totals.map((t, i) => (t === lowest ? i : -1)).filter((i) => i >= 0);
+    const me0 = mySeat();
+    winner = leaders.length === 1 && leaders[0] === me0 ? 'Ti fitove!'
+      : leaders.includes(me0) ? 'Barazim: Ti dhe ' + leaders.filter((i) => i !== me0).map((i) => esc(names[i])).join(' dhe ')
+      : leaders.map((i) => esc(names[i])).join(' dhe ') + (leaders.length > 1 ? ' fituan.' : ' fitoi.');
+  }
+  let html = '<div class="overlay"><div class="dialog"><h2>' + (over ? 'Loja mbaroi' : 'Raundi ' + (played + 1) + ' mbaroi') + '</h2>';
+  html += over ? '<p class="big">' + winner + '</p><p>' + closeText(result) + '</p>' : '<p>' + closeText(result) + '</p>';
+  html += '<table><tr><th></th><th>Raundi</th><th>Totali</th></tr>';
+  for (let s = 0; s < 4; s++) html += '<tr><td>' + esc(names[s]) + '</td><td>' + result.scores[s] + '</td><td>' + totals[s] + '</td></tr>';
+  html += '</table><p class="muted">Fiton totali më i ulët.</p>';
+  if (A().isHost()) html += btn(over ? 'Lojë e re' : 'Raundi tjetër', 'nextRound', 'yellow');
+  else html += '<p class="waiting">Duke pritur që ' + esc(online.hostName()) + ' të vazhdojë...</p>';
+  if (over) html += '<div style="height:8px"></div>' + btn('Kthehu në fillim', 'goHome', 'gray');
+  return html + '</div></div>';
+}
+
+function chooserHTML() {
+  if (!ui.chooser) return '';
+  let html = '<div class="overlay"><div class="dialog"><h2>Çfarë do të bësh?</h2><div class="choices">';
+  ui.chooser.options.forEach((o, i) => { html += btn(o.label, 'choose', o.kind === 'joker' ? 'green' : 'orange', false, ' data-option="' + i + '"'); });
+  return html + btn('Anulo', 'closeChooser', 'gray') + '</div></div></div>';
+}
+
+function helpHTML() {
+  if (!ui.showHelp) return '';
+  return '<div class="overlay"><div class="dialog"><h2>Si luhet</h2><ul class="help">' +
+    '<li>Ti je poshtë në tavolinë. Loja shkon djathtas: pas teje luan ai në të djathtë, pastaj ai përballë, pastaj ai në të majtë.</li>' +
+    '<li>Kombinimet e çdo lojtari janë para tij. Shkronja e vogël mbi xhoker tregon cilën letër zëvendëson.</li>' +
+    '<li>Prek letrat për t\'i zgjedhur. <b>Tërhiqi</b> majtas ose djathtas për t\'i renditur si të duash. Letra që sapo more ka kornizë jeshile dhe del në fund djathtas.</li>' +
+    '<li><b>Gjej kombinimet</b> i gjen kombinimet më të mira për ty. <b>Bëj kombinim</b> përdor letrat që zgjodhe.</li>' +
+    '<li>Të duhen <b>51 pikë</b> për të hapur. <b>Hap me ...</b> merr letrën e hedhur dhe hap me të.</li>' +
+    '<li>Pasi hap: zgjidh një letër dhe prek një <b>kombinim që ndriçon</b> për ta shitur. Zgjidh letrat e vërteta dhe prek një kombinim me xhoker për ta marrë xhokerin.</li>' +
+    '<li>Zgjidh një letër dhe shtyp <b>Hidh letrën</b> për ta mbaruar radhën. Letra e fundit që hedh e mbyll lojën.</li>' +
+    '<li>Pas 8 raundesh fiton ai me më pak pikë.</li></ul>' +
+    btn('Mbyll', 'closeHelp', 'yellow') + '<div style="height:10px"></div>' + btn('Dil nga loja', 'goHome', 'gray') + '</div></div>';
+}
+
+function gameHTML() {
+  if (!round()) return '<div class="screen"><h1>Duke u lidhur...</h1></div>';
+  return headerHTML() + tableHTML() + statusHTML() + stagedHTML() + actionsHTML() + handHTML() + resultHTML() + chooserHTML() + helpHTML();
+}
+
+// ============================================================
+// Render
+// ============================================================
+
+function render() {
+  if (drag && drag.moving) { renderLater = true; return; }
+  const app = document.getElementById('app');
+  const handEl = document.getElementById('hand');
+  const handScroll = handEl ? handEl.scrollLeft : 0;
+  const zoneScroll = {};
+  document.querySelectorAll('.zone').forEach((z) => { zoneScroll[z.className] = z.scrollTop; });
+  let html;
+  switch (ui.screen) {
+    case 'menu': html = menuHTML(); break;
+    case 'create': html = createHTML(); break;
+    case 'join': html = joinHTML(); break;
+    case 'lobby': html = lobbyHTML(); break;
+    case 'game': html = gameHTML(); break;
+    default: html = homeHTML();
+  }
+  app.className = ui.screen === 'game' ? 'in-game' : 'in-menu';
+  app.innerHTML = html;
+  document.querySelectorAll('.zone').forEach((z) => { if (zoneScroll[z.className]) z.scrollTop = zoneScroll[z.className]; });
+  const h2 = document.getElementById('hand');
+  if (h2) {
+    h2.scrollLeft = handScroll;
+    if (ui.scrollToNew) {
+      ui.scrollToNew = false;
+      const fresh = h2.querySelector('.card.new');
+      if (fresh) h2.scrollLeft = Math.max(0, fresh.offsetLeft - h2.clientWidth / 2);
+    }
+    layoutHand(h2);
+  }
+  ui.lastRects = snapshot();
+}
+
+function layoutHand(handEl) {
+  const cards = handEl.querySelectorAll('.card');
+  const n = cards.length;
+  const width = handEl.clientWidth - 16;
+  if (n < 2 || width <= 0) return;
+  const w = cards[0].offsetWidth || 52;
+  const step = Math.max(14, Math.min(w + 4, (width - w) / (n - 1)));
+  cards.forEach((c, i) => { c.style.marginLeft = (i === 0 ? 0 : step - w) + 'px'; });
+}
+
+// ============================================================
+// Dragging cards in your hand
+// ============================================================
+
+let drag = null;
+let renderLater = false;
+let suppressClick = { id: null, until: 0 };
+function handCardEls() { return Array.from(document.querySelectorAll('#hand .card[data-card]')); }
+function dropIndex(x, id) {
+  const els = handCardEls().filter((el) => el.getAttribute('data-card') !== String(id));
+  let index = 0;
+  for (let i = 0; i < els.length; i++) {
+    const r = els[i].getBoundingClientRect();
+    const next = i + 1 < els.length ? els[i + 1].getBoundingClientRect().left : r.right;
+    const visible = Math.max(8, Math.min(r.width, next - r.left));
+    if (x > r.left + visible / 2) index = i + 1;
+  }
+  return index;
+}
+function showDropMarker(index, id) {
+  const els = handCardEls().filter((el) => el.getAttribute('data-card') !== String(id));
+  els.forEach((el) => el.classList.remove('drop-before', 'drop-after'));
+  if (els.length === 0) return;
+  if (index < els.length) els[index].classList.add('drop-before'); else els[els.length - 1].classList.add('drop-after');
+}
+function endDrag(drop, x) {
+  const d = drag;
+  drag = null;
+  if (!d) return;
+  if (d.ghost) d.ghost.remove();
+  if (d.moving) {
+    suppressClick = { id: d.id, until: Date.now() + 400 };
+    if (drop) moveCard(d.id, dropIndex(x, d.id));
+    renderLater = false;
+    render();
+  }
+}
+
+// ============================================================
+// Taps and typing
+// ============================================================
+
+const app = document.getElementById('app');
+
+app.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest('#hand .card[data-card]');
+  if (!el || (e.button !== undefined && e.button > 0)) return;
+  drag = { id: parseInt(el.getAttribute('data-card'), 10), x0: e.clientX, y0: e.clientY, moving: false, ghost: null, el };
+});
+window.addEventListener('pointermove', (e) => {
+  if (!drag) return;
+  const dx = e.clientX - drag.x0, dy = e.clientY - drag.y0;
+  if (!drag.moving) {
+    if (Math.abs(dx) + Math.abs(dy) < 8) return;
+    drag.moving = true;
+    const r = drag.el.getBoundingClientRect();
+    const ghost = drag.el.cloneNode(true);
+    ghost.classList.add('drag-ghost'); ghost.classList.remove('sel');
+    ghost.style.marginLeft = '0px'; ghost.style.left = r.left + 'px'; ghost.style.top = r.top + 'px';
+    drag.offX = drag.x0 - r.left; drag.offY = drag.y0 - r.top;
+    document.body.appendChild(ghost);
+    drag.ghost = ghost;
+    drag.el.classList.add('dragging');
+  }
+  drag.ghost.style.left = (e.clientX - drag.offX) + 'px';
+  drag.ghost.style.top = (e.clientY - drag.offY) + 'px';
+  showDropMarker(dropIndex(e.clientX, drag.id), drag.id);
+  if (e.cancelable) e.preventDefault();
+});
+window.addEventListener('pointerup', (e) => { if (drag) endDrag(true, e.clientX); });
+window.addEventListener('pointercancel', () => { if (drag) endDrag(false, 0); });
+window.addEventListener('touchmove', (e) => { if (drag && drag.moving) e.preventDefault(); }, { passive: false });
+window.addEventListener('resize', () => { const h = document.getElementById('hand'); if (h) layoutHand(h); });
+
+app.addEventListener('input', (e) => {
+  const f = e.target.getAttribute && e.target.getAttribute('data-field');
+  if (f === 'name') ui.name = e.target.value;
+  if (f === 'code') { ui.code = e.target.value.toUpperCase(); if (e.target.value !== ui.code) e.target.value = ui.code; }
+});
+app.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.getAttribute || !e.target.getAttribute('data-field')) return;
+  if (ui.screen === 'create') createGame();
+  if (ui.screen === 'join') joinGame();
+});
+
+app.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-action]');
+  if (!el || el.disabled) return;
+  const index = el.getAttribute('data-index') !== null ? parseInt(el.getAttribute('data-index'), 10) : -1;
+  switch (el.getAttribute('data-action')) {
+    // start window
+    case 'home': ui.screen = 'home'; ui.formError = ''; render(); break;
+    case 'menu': ui.screen = 'menu'; ui.formError = ''; render(); break;
+    case 'toCreate': ui.screen = 'create'; ui.formError = ''; render(); break;
+    case 'toJoin': ui.screen = 'join'; ui.formError = ''; render(); break;
+    case 'solo': startSolo(); break;
+    case 'create': createGame(); break;
+    case 'join': joinGame(); break;
+    case 'share': shareLink(); break;
+    case 'startOnline': startOnline(); break;
+    case 'leaveLobby': leaveLobby(); break;
+    case 'goHome': goHome(); break;
+    // the table
+    case 'toggle': {
+      const id = parseInt(el.getAttribute('data-card'), 10);
+      if (suppressClick.id === id && Date.now() < suppressClick.until) break;
+      toggleCard(id); break;
+    }
+    case 'draw': perform({ type: 'drawFromPile' }); break;
+    case 'takeDiscard': perform({ type: 'takeDiscard' }); break;
+    case 'takeBottom': perform({ type: 'takeBottomCard' }); break;
+    case 'beginOpen': ui.openingWithDiscard = true; ui.selected = new Set(); ui.staged = []; ui.message = ''; render(); break;
+    case 'cancelOpen': ui.openingWithDiscard = false; ui.selected = new Set(); ui.staged = []; ui.message = ''; render(); break;
+    case 'auto': autoMeld(); break;
+    case 'makeMeld': makeMeld(); break;
+    case 'unstage': ui.staged.splice(index, 1); render(); break;
+    case 'layDown': layDownAction(); break;
+    case 'throw': throwSelected(); break;
+    case 'meld': tapMeld(index); break;
+    case 'choose': { const o = ui.chooser && ui.chooser.options[parseInt(el.getAttribute('data-option'), 10)]; ui.chooser = null; if (o) perform(o.move); else render(); break; }
+    case 'closeChooser': ui.chooser = null; render(); break;
+    case 'sortSuit': sortHand('suit'); break;
+    case 'sortRank': sortHand('rank'); break;
+    case 'nextRound': A().nextRound(); break;
+    case 'takeover': online.takeover(index, el.getAttribute('data-on') === '1'); break;
+    case 'help': ui.showHelp = true; render(); break;
+    case 'closeHelp': ui.showHelp = false; render(); break;
+    default: break;
+  }
+});
+
+// ============================================================
+// Start: a shared link (?kod=ABCD) opens the join screen; a saved game is reopened
+// ============================================================
+
+window.__zhol = ui;
+window.__zholOnline = online;
+window.__zholSolo = solo;
+
+(function boot() {
+  let params;
+  try { params = new URLSearchParams(location.search); } catch (e) { params = null; }
+  const linkCode = params && params.get('kod');
+  let saved = null;
+  try { saved = JSON.parse(localStorage.getItem('zhol.session') || 'null'); } catch (e) { saved = null; }
+  if (saved && saved.code && saved.token && (!linkCode || linkCode.toUpperCase() === saved.code)) {
+    ui.mode = 'online'; ui.screen = 'lobby';
+    online.connect(saved);
+  } else if (linkCode) {
+    ui.code = linkCode.toUpperCase().slice(0, 4);
+    ui.screen = 'join';
+  }
+  render();
+})();
+})();
+
+</script>
+</body>
+</html>
