@@ -401,7 +401,8 @@ function takingJoker(m, given) {
 /** "E shitur": a card that fits a meld on the table. Jokers don't count here. */
 function isSellable(card, table) {
   if (isJoker(card)) return false;
-  return table.some((m) => adding(m, card) !== null);
+  // "sold": it fits at the end of a meld on the table, OR it is the real card a joker on the table stands for
+  return table.some((m) => adding(m, card) !== null || takingJoker(m, [card]) !== null);
 }
 
 /** The cards the player may throw. A joker can't be thrown unless it is the last card.
