@@ -23,8 +23,76 @@ const BOT_DELAY = process.env.ZHOL_BOT_DELAY !== undefined ? parseInt(process.en
 const BOT_NAMES = ['Besnik', 'Drita', 'Arben', 'Mira'];
 const CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 const INDEX_FILE = path.join(__dirname, 'public', 'index.html');
+const ADMIN_FILE = path.join(__dirname, 'admin.html');
+// Set these under "Environment" on Render (they are never in the code on GitHub):
+//   ADMIN_KEY      the password for luajzhol.com/admin
+//   CF_ANALYTICS   the token from Cloudflare Web Analytics (monthly visitors)
+const ADMIN_KEY = process.env.ADMIN_KEY || '';
+const CF_ANALYTICS = /^[A-Za-z0-9]{8,64}$/.test(process.env.CF_ANALYTICS || '') ? process.env.CF_ANALYTICS : '';
 
 const games = new Map();          // code -> game
+
+// ---------- Who is on the site (anonymous, only in memory) ----------
+// Every open page sends a small "I'm here" signal (a random id, no name, no cookies) every 30 seconds.
+
+const STATS_ZONE = 'Europe/Stockholm';
+const stats = { since: Date.now(), day: '', visitors: new Set(), soloPlayers: new Set(), gamesWithFriends: 0, roundsWithFriends: 0 };
+const presence = new Map();       // visitor id -> { page, last }
+const PAGES = new Set(['menu', 'lobby', 'game-online', 'game-solo']);
+
+function todayKey() { return new Date().toLocaleDateString('sv-SE', { timeZone: STATS_ZONE }); }
+function rollDay() {
+  const d = todayKey();
+  if (stats.day !== d) { stats.day = d; stats.visitors = new Set(); stats.soloPlayers = new Set(); stats.gamesWithFriends = 0; stats.roundsWithFriends = 0; }
+}
+function notePing(vid, page) {
+  rollDay();
+  presence.set(vid, { page, last: Date.now() });
+  stats.visitors.add(vid);
+  if (page === 'game-solo') stats.soloPlayers.add(vid);
+}
+function statsNow() {
+  rollDay();
+  const cutoff = Date.now() - 70 * 1000;
+  const now = { onSite: 0, inMenus: 0, vsComputer: 0, inWaitingRooms: 0, playingWithFriends: 0, gamesRunning: 0 };
+  for (const [vid, p] of presence) {
+    if (p.last < cutoff) { presence.delete(vid); continue; }
+    now.onSite++;
+    if (p.page === 'menu') now.inMenus++;
+    if (p.page === 'game-solo') now.vsComputer++;
+  }
+  const list = [];
+  for (const g of games.values()) {
+    const connected = g.players.filter((p) => p.clients.size > 0);
+    if (connected.length === 0) continue;
+    if (g.started) { now.gamesRunning++; now.playingWithFriends += connected.length; }
+    else now.inWaitingRooms += connected.length;
+    list.push({ code: g.code, started: g.started, round: g.started ? g.match.roundsPlayed + 1 : 0, players: g.players.map((p) => p.name) });
+  }
+  // the live connections are exact; make sure "on the site" is never smaller than the people we can see playing
+  now.onSite = Math.max(now.onSite, now.inMenus + now.vsComputer + now.inWaitingRooms + now.playingWithFriends);
+  return {
+    since: stats.since,
+    now,
+    today: { visitors: stats.visitors.size, vsComputerPlayers: stats.soloPlayers.size, gamesWithFriends: stats.gamesWithFriends, roundsWithFriends: stats.roundsWithFriends },
+    games: list,
+  };
+}
+
+// Wrong admin passwords: at most 10 tries a minute from one address
+const adminTries = new Map();
+function adminAllowed(req) {
+  const ip = (req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim();
+  const now = Date.now();
+  const t = adminTries.get(ip) || { count: 0, start: now };
+  if (now - t.start > 60000) { t.count = 0; t.start = now; }
+  adminTries.set(ip, t);
+  return { ip, ok: t.count < 10, fail: () => { t.count++; } };
+}
+function sameKey(a, b) {
+  const x = Buffer.from(String(a)), y = Buffer.from(String(b));
+  return x.length === y.length && crypto.timingSafeEqual(x, y);
+}
 
 // ---------- Helpers ----------
 
@@ -124,6 +192,7 @@ function doMove(game, seat, move) {
   else if (move.type === 'takeDiscardAndOpen') card = topBefore;
   else if (move.type === 'discard' || move.type === 'sell') card = move.card;
   else if (move.type === 'takeJoker') card = round.players[seat].hand.find((c) => !handBefore.has(c.id)) || null;   // the joker (it was on the table)
+  if (round.phase === 'finished') { rollDay(); stats.roundsWithFriends++; }
   game.event = {
     seq: ++game.eventSeq, seat, type: move.type, card, isPublic,
     count: move.groups ? move.groups.length : 0,
@@ -198,6 +267,8 @@ function viewFor(game, player) {
     discardTop: r.discardPile.length ? r.discardPile[r.discardPile.length - 1] : null,
     drawCount: r.drawPile.length,
     bottomCard: r.bottomCard,
+    cutter: r.cutter,
+    cutJoker: !!r.cutJoker,
     result: r.result,
     totals: m.totals,
     dealer: m.dealer,
@@ -260,6 +331,12 @@ const routes = {
     return { code: game.code, token: player.token };
   },
   'POST /api/check': (body) => { findPlayer(body); return { ok: true }; },
+  'POST /api/ping': (body) => {
+    const vid = String(body.vid || '');
+    const page = PAGES.has(body.page) ? body.page : 'menu';
+    if (/^[a-z0-9]{8,40}$/.test(vid)) notePing(vid, page);
+    return { ok: true };
+  },
   'POST /api/chat': (body) => {
     const { game, player } = findPlayer(body);
     const text = String(body.text || '').replace(/\s+/g, ' ').trim().slice(0, 200);
@@ -289,6 +366,7 @@ const routes = {
     if (game.started) throw new ApiError('started');
     if (game.players.length < 2) throw new ApiError('needTwo');
     startGame(game);
+    rollDay(); stats.gamesWithFriends++;
     broadcast(game);
     scheduleBots(game);
     return { ok: true };
@@ -305,6 +383,22 @@ const routes = {
       if (e instanceof Z.MoveError) throw new ApiError(e.code);
       throw e;
     }
+    return { ok: true };
+  },
+  'POST /api/redeal': (body) => {
+    // a player with 4 or more pairs asks for a new deal before anyone has played; jokers stay with their holders
+    const { game, player } = findPlayer(body);
+    if (!game.started) throw new ApiError('notStarted');
+    const seat = seatOf(game, player);
+    try { game.match.round.redeal(seat); } catch (e) {
+      if (e instanceof Z.MoveError) throw new ApiError(e.code);
+      throw e;
+    }
+    game.roundId++;
+    game.event = { seq: ++game.eventSeq, seat, type: 'redeal', card: null, isPublic: true, count: 0, meld: null, cards: null };
+    game.lastActive = Date.now();
+    broadcast(game);
+    scheduleBots(game);
     return { ok: true };
   },
   'POST /api/next': (body) => {
@@ -350,11 +444,35 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
 
   if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-    fs.readFile(INDEX_FILE, (err, data) => {
+    fs.readFile(INDEX_FILE, 'utf8', (err, data) => {
       if (err) { res.writeHead(500); res.end('index.html is missing'); return; }
+      if (CF_ANALYTICS) {
+        // Cloudflare Web Analytics (no cookies): counts visitors per day and month
+        const beacon = '<script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon=\'{"token": "' + CF_ANALYTICS + '"}\'></script>';
+        data = data.replace('</body>', beacon + '\n</body>');
+      }
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-cache' });
       res.end(data);
     });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/admin') {
+    fs.readFile(ADMIN_FILE, (err, data) => {
+      if (err) { res.writeHead(500); res.end('admin.html is missing'); return; }
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' });
+      res.end(data);
+    });
+    return;
+  }
+
+  if (req.method === 'GET' && url.pathname === '/api/admin/stats') {
+    if (!ADMIN_KEY) { json(res, 503, { error: 'adminOff' }); return; }
+    const guard = adminAllowed(req);
+    if (!guard.ok) { json(res, 429, { error: 'tooMany' }); return; }
+    const given = (req.headers.authorization || '').replace(/^Bearer /, '');
+    if (!sameKey(given, ADMIN_KEY)) { guard.fail(); json(res, 401, { error: 'wrongKey' }); return; }
+    json(res, 200, statsNow());
     return;
   }
 
@@ -406,4 +524,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { server, games };
+module.exports = { server, games, stats, presence };

@@ -45,34 +45,47 @@ function makeFullDeck() {
 }
 
 /** Shuffle, cut, deal for 2, 3 or 4 players. First player (right of the dealer) gets 15 cards, the others 14.
- *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2). */
-function dealRound(dealer, rng, playerCount) {
+ *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2), with a card face up at the bottom.
+ *
+ *  The cut: the player to the dealer's left lifts about half of the deck and looks at the bottom card of
+ *  the part he lifted. A joker he keeps, and then he looks at the next card up. The first card that is not
+ *  a joker goes face up under the deck, so every round has a bottom card for a Hand.
+ *  For every joker he kept, the dealer gives him one card less in the first round. */
+function dealRound(dealer, rng, playerCount, keep) {
   const r = rng || random;
   const n = playerCount || 4;
-  const deck = shuffle(makeFullDeck(), r);
+  // keep[seat] = jokers a player keeps when the cards are dealt again; they are not in the deck
+  const keptIds = new Set();
+  if (keep) keep.forEach((cards) => (cards || []).forEach((c) => keptIds.add(c.id)));
+  const deck = shuffle(makeFullDeck().filter((c) => !keptIds.has(c.id)), r);
   const first = (dealer + 1) % n;
   const cutter = (dealer + n - 1) % n;      // the player to the dealer's left
+  const hands = Array.from({ length: n }, (_, s) => (keep && keep[s] ? keep[s].slice() : []));
 
-  const cutIndex = 40 + Math.floor(r() * 29);          // roughly half
-  const cutCard = deck.splice(cutIndex - 1, 1)[0];
-  const hands = Array.from({ length: n }, () => []);
-  let faceUp = null;
-  if (isJoker(cutCard)) hands[cutter].push(cutCard); else faceUp = cutCard;
+  let pos = 40 + Math.floor(r() * 29) - 1;  // the bottom card of the part he lifted (roughly half)
+  let faceUp = null, kept = 0;
+  while (pos >= 0 && faceUp === null) {
+    const card = deck.splice(pos, 1)[0];
+    if (isJoker(card)) { hands[cutter].push(card); kept++; pos--; } else faceUp = card;
+  }
 
+  const target = (seat) => (seat === first ? 15 : 14);
+  const give = (seat, k) => {
+    const count = Math.min(k, target(seat) - hands[seat].length);
+    for (let i = 0; i < count; i++) hands[seat].push(deck.shift());
+  };
   for (let step = 0; step < n; step++) {
     const seat = (first + step) % n;
     let count = step === 0 ? 3 : 2;
-    if (seat === cutter && isJoker(cutCard)) count -= 1;
-    for (let k = 0; k < count; k++) hands[seat].push(deck.shift());
+    if (seat === cutter) count = Math.max(0, count - kept);
+    give(seat, count);
   }
   for (let round = 0; round < 6; round++)
-    for (let step = 0; step < n; step++) {
-      const seat = (first + step) % n;
-      hands[seat].push(deck.shift());
-      hands[seat].push(deck.shift());
-    }
+    for (let step = 0; step < n; step++) give((first + step) % n, 2);
+  for (let step = 0; step < n; step++) give((first + step) % n, 15);   // only matters if he kept several jokers
+
   if (faceUp) deck.push(faceUp);
-  return { hands, drawPile: deck, faceUpBottomCard: faceUp, dealer, firstPlayer: first, cutter };
+  return { hands, drawPile: deck, faceUpBottomCard: faceUp, dealer, firstPlayer: first, cutter, cutterJokers: kept };
 }
 
 // ---------- Melds ----------
@@ -394,15 +407,18 @@ function isSellable(card, table) {
 /** The cards the player may throw. A joker can't be thrown unless it is the last card.
  *  A player who hasn't opened can't throw a card that fits a meld on the table. */
 function legalDiscards(hand, hasOpened, table) {
-  if (hand.length === 1) return hand.slice();
-  let allowed = hand.filter((c) => !isJoker(c));
-  if (!hasOpened) allowed = allowed.filter((c) => !isSellable(c, table));
-  return allowed.length === 0 ? hand.slice() : allowed;
+  if (hand.length === 1) return hand.slice();                 // the last card closes the game (it may be a joker)
+  const realCards = hand.filter((c) => !isJoker(c));
+  let allowed = realCards;
+  if (!hasOpened) allowed = realCards.filter((c) => !isSellable(c, table));
+  if (allowed.length > 0) return allowed;
+  if (realCards.length > 0) return realCards;                 // every real card is "sold": throw one of those, never a joker
+  return hand.slice();                                        // only jokers left (almost never happens)
 }
 
 // ---------- Closing and scoring ----------
 
-const CLOSER_POINTS = { normal: -40, normalWithJoker: -80, hand: -120, handWithJoker: -200, ngjyre: -800 };
+const CLOSER_POINTS = { normal: -40, normalWithJoker: -80, hand: -140, handWithJoker: -200, ngjyre: -800 };
 const isBigClose = (t) => t === 'hand' || t === 'handWithJoker' || t === 'ngjyre';
 
 /** A Ngjyre: 14 cards in one suit, ace low, 2 to king, ace high. No joker. */
@@ -445,6 +461,28 @@ function removing(cards, hand) {
   return remaining;
 }
 
+let dealCounter = 0;
+
+// ---------- Dealing again ----------
+// A player with 4 or more pairs (two identical cards, e.g. two 7 of hearts) may ask for a new deal before
+// anyone has played. Whoever holds jokers keeps them; all the other cards are shuffled and dealt again.
+const REDEAL_PAIRS = 4;
+function countPairs(hand) {
+  const seen = new Map();
+  let pairs = 0;
+  for (const c of hand) {
+    if (isJoker(c)) continue;
+    const k = c.rank + ':' + c.suit;
+    const v = (seen.get(k) || 0) + 1;
+    seen.set(k, v);
+    if (v === 2) pairs++;
+  }
+  return pairs;
+}
+function canRedeal(round, seat) {
+  return round.phase === 'firstDiscard' && !!round.players[seat] && countPairs(round.players[seat].hand) >= REDEAL_PAIRS;
+}
+
 class GameRound {
   constructor(deal) {
     this.players = deal.hands.map((h) => ({ hand: h.slice(), hasOpened: false }));
@@ -452,10 +490,26 @@ class GameRound {
     this.discardPile = [];
     this.table = [];
     this.bottomCard = deal.faceUpBottomCard;
+    this.dealer = deal.dealer;
+    this.firstPlayer = deal.firstPlayer;
+    this.dealId = ++dealCounter;                        // changes with every new deal (also when dealt again)
+    this.redeals = 0;
+    this.cutter = deal.cutter;                          // the player to the dealer's left, who cut the deck
+    this.cutJoker = (deal.cutterJokers || 0) > 0;      // he found a joker in the cut and kept it
     this.current = deal.firstPlayer;
     this.phase = 'firstDiscard';       // firstDiscard | draw | play | finished
     this.turn = { openedBeforeThisTurn: false, meldsLaid: [], cardsPlacedOnOthersMelds: [] };
     this.result = null;
+  }
+
+  /** Deal again for everyone (asked by a player with 4+ pairs). Throws a MoveError if it is not allowed. */
+  redeal(seat) {
+    if (!canRedeal(this, seat)) throw new MoveError('cannotRedeal');
+    const n = this.players.length;
+    const keep = this.players.map((p) => p.hand.filter(isJoker));
+    const times = this.redeals + 1;
+    Object.assign(this, new GameRound(dealRound(this.dealer, undefined, n, keep)));
+    this.redeals = times;
   }
 
   clone() {
@@ -779,6 +833,7 @@ return {
   meldCandidates, bestOpening, handCloseGroups,
   makeTableMeld, adding, takingJoker, isSellable, legalDiscards, runSuit, setRank,
   isNgjyre, closeType, roundScores, dealerForRound,
+  REDEAL_PAIRS, countPairs, canRedeal,
   MoveError, GameRound, ZholMatch,
   botNextMove, botFallbackMove, botPlayOneMove,
 };

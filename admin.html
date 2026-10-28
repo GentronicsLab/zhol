@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Zhol admin</title>
+<style>
+:root { --bg: #17231c; --panel: #22332a; --text: #fff; --muted: rgba(255,255,255,.7); --yellow: #ffd54a; --red: #ef6b6b;
+  box-sizing: border-box; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; }
+main { max-width: 520px; margin: 0 auto; padding: 16px 14px 40px; }
+h1 { font-size: 22px; margin: 4px 0 14px; } h2 { font-size: 16px; margin: 18px 0 8px; color: var(--yellow); }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.box { background: var(--panel); border-radius: 12px; padding: 12px; }
+.box b { display: block; font-size: 30px; color: var(--yellow); }
+.box span { font-size: 13px; color: var(--muted); }
+.big { grid-column: 1 / -1; } .big b { font-size: 46px; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; } td, th { padding: 6px 4px; text-align: left; border-bottom: 1px solid rgba(255,255,255,.1); }
+input { font: inherit; font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 2px solid rgba(255,255,255,.3); background: rgba(0,0,0,.25); color: var(--text); width: 100%; box-sizing: border-box; }
+button { font: inherit; font-weight: 700; padding: 10px 14px; border: none; border-radius: 10px; background: var(--yellow); color: #000; margin-top: 10px; cursor: pointer; }
+.muted { color: var(--muted); font-size: 13px; } .warn { color: var(--red); }
+footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 30px; }
+</style>
+</head>
+<body>
+<main id="app"></main>
+<script>
+(function () {
+  'use strict';
+  var app = document.getElementById('app');
+  var key = '';
+  try { key = sessionStorage.getItem('zhol.adminKey') || ''; } catch (e) { /* ignore */ }
+  var timer = null;
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function loginView(msg) {
+    app.innerHTML = '<h1>Zhol admin</h1><p class="muted">Write the admin password you set on Render (ADMIN_KEY).</p>' +
+      '<form id="f"><input id="k" type="password" autocomplete="current-password" placeholder="Password"><button type="submit">Open</button></form>' +
+      (msg ? '<p class="warn">' + esc(msg) + '</p>' : '') + '<footer>Powered by Gentronics Lab</footer>';
+    document.getElementById('f').addEventListener('submit', function (e) {
+      e.preventDefault();
+      key = document.getElementById('k').value;
+      load();
+    });
+  }
+
+  function statsView(s) {
+    var games = s.games.map(function (g) {
+      return '<tr><td><b>' + esc(g.code) + '</b></td><td>' + esc(g.players.join(', ')) + '</td><td>' + (g.started ? 'Round ' + g.round + ' of 8' : 'Waiting room') + '</td></tr>';
+    }).join('');
+    app.innerHTML = '<h1>Zhol admin</h1>' +
+      '<h2>Right now</h2><div class="grid">' +
+      '<div class="box big"><b>' + s.now.onSite + '</b><span>people on luajzhol.com</span></div>' +
+      '<div class="box"><b>' + s.now.playingWithFriends + '</b><span>playing with friends (' + s.now.gamesRunning + ' games)</span></div>' +
+      '<div class="box"><b>' + s.now.inWaitingRooms + '</b><span>in waiting rooms</span></div>' +
+      '<div class="box"><b>' + s.now.vsComputer + '</b><span>playing against the computer</span></div>' +
+      '<div class="box"><b>' + s.now.inMenus + '</b><span>on the start window and menus</span></div>' +
+      '</div>' +
+      '<h2>Today</h2><div class="grid">' +
+      '<div class="box"><b>' + s.today.visitors + '</b><span>different visitors</span></div>' +
+      '<div class="box"><b>' + s.today.gamesWithFriends + '</b><span>games with friends started</span></div>' +
+      '<div class="box"><b>' + s.today.roundsWithFriends + '</b><span>rounds with friends played</span></div>' +
+      '<div class="box"><b>' + s.today.vsComputerPlayers + '</b><span>people played against the computer</span></div>' +
+      '</div>' +
+      '<h2>Games right now</h2>' + (games ? '<table><tr><th>Code</th><th>Players</th><th></th></tr>' + games + '</table>' : '<p class="muted">No games right now.</p>') +
+      '<p class="muted">Counting since ' + esc(new Date(s.since).toLocaleString()) + '. These numbers start again from zero when the server restarts. ' +
+      'For visitors per month, use Cloudflare Web Analytics. Updates every 10 seconds.</p>' +
+      '<button id="out">Log out</button><footer>Powered by Gentronics Lab</footer>';
+    document.getElementById('out').addEventListener('click', function () {
+      key = ''; try { sessionStorage.removeItem('zhol.adminKey'); } catch (e) { /* ignore */ }
+      clearTimeout(timer); loginView('');
+    });
+  }
+
+  function load() {
+    clearTimeout(timer);
+    if (!key) { loginView(''); return; }
+    fetch('/api/admin/stats', { headers: { Authorization: 'Bearer ' + key }, cache: 'no-store' }).then(function (r) {
+      return r.json().then(function (d) { return { status: r.status, data: d }; });
+    }).then(function (res) {
+      if (res.status === 200) {
+        try { sessionStorage.setItem('zhol.adminKey', key); } catch (e) { /* ignore */ }
+        statsView(res.data);
+        timer = setTimeout(load, 10000);
+      } else if (res.status === 503) {
+        loginView('The admin page is off. Add ADMIN_KEY under Environment on Render.');
+      } else if (res.status === 429) {
+        loginView('Too many wrong passwords. Wait a minute and try again.');
+      } else {
+        key = ''; try { sessionStorage.removeItem('zhol.adminKey'); } catch (e) { /* ignore */ }
+        loginView('Wrong password.');
+      }
+    }).catch(function () { loginView('No connection to the server.'); });
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
