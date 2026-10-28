@@ -255,6 +255,7 @@ label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-
 /* ---- smoother flying cards ---- */
 .flying { will-change: transform; box-shadow: 0 10px 20px rgba(0, 0, 0, 0.45); }
 .card.landing { visibility: hidden; }
+.center-note.cut-joker { color: #e1bee7; font-weight: 700; text-align: center; max-width: 150px; line-height: 1.25; }
 /* a meld that just got new cards glows for a moment */
 .meld.fresh { animation: freshGlow 2200ms ease-out both; }
 @keyframes freshGlow {
@@ -316,34 +317,47 @@ function makeFullDeck() {
 }
 
 /** Shuffle, cut, deal for 2, 3 or 4 players. First player (right of the dealer) gets 15 cards, the others 14.
- *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2). */
-function dealRound(dealer, rng, playerCount) {
+ *  With 4 players 51 cards stay in the pile (65 with 3, 79 with 2), with a card face up at the bottom.
+ *
+ *  The cut: the player to the dealer's left lifts about half of the deck and looks at the bottom card of
+ *  the part he lifted. A joker he keeps, and then he looks at the next card up. The first card that is not
+ *  a joker goes face up under the deck, so every round has a bottom card for a Hand.
+ *  For every joker he kept, the dealer gives him one card less in the first round. */
+function dealRound(dealer, rng, playerCount, keep) {
   const r = rng || random;
   const n = playerCount || 4;
-  const deck = shuffle(makeFullDeck(), r);
+  // keep[seat] = jokers a player keeps when the cards are dealt again; they are not in the deck
+  const keptIds = new Set();
+  if (keep) keep.forEach((cards) => (cards || []).forEach((c) => keptIds.add(c.id)));
+  const deck = shuffle(makeFullDeck().filter((c) => !keptIds.has(c.id)), r);
   const first = (dealer + 1) % n;
   const cutter = (dealer + n - 1) % n;      // the player to the dealer's left
+  const hands = Array.from({ length: n }, (_, s) => (keep && keep[s] ? keep[s].slice() : []));
 
-  const cutIndex = 40 + Math.floor(r() * 29);          // roughly half
-  const cutCard = deck.splice(cutIndex - 1, 1)[0];
-  const hands = Array.from({ length: n }, () => []);
-  let faceUp = null;
-  if (isJoker(cutCard)) hands[cutter].push(cutCard); else faceUp = cutCard;
+  let pos = 40 + Math.floor(r() * 29) - 1;  // the bottom card of the part he lifted (roughly half)
+  let faceUp = null, kept = 0;
+  while (pos >= 0 && faceUp === null) {
+    const card = deck.splice(pos, 1)[0];
+    if (isJoker(card)) { hands[cutter].push(card); kept++; pos--; } else faceUp = card;
+  }
 
+  const target = (seat) => (seat === first ? 15 : 14);
+  const give = (seat, k) => {
+    const count = Math.min(k, target(seat) - hands[seat].length);
+    for (let i = 0; i < count; i++) hands[seat].push(deck.shift());
+  };
   for (let step = 0; step < n; step++) {
     const seat = (first + step) % n;
     let count = step === 0 ? 3 : 2;
-    if (seat === cutter && isJoker(cutCard)) count -= 1;
-    for (let k = 0; k < count; k++) hands[seat].push(deck.shift());
+    if (seat === cutter) count = Math.max(0, count - kept);
+    give(seat, count);
   }
   for (let round = 0; round < 6; round++)
-    for (let step = 0; step < n; step++) {
-      const seat = (first + step) % n;
-      hands[seat].push(deck.shift());
-      hands[seat].push(deck.shift());
-    }
+    for (let step = 0; step < n; step++) give((first + step) % n, 2);
+  for (let step = 0; step < n; step++) give((first + step) % n, 15);   // only matters if he kept several jokers
+
   if (faceUp) deck.push(faceUp);
-  return { hands, drawPile: deck, faceUpBottomCard: faceUp, dealer, firstPlayer: first, cutter };
+  return { hands, drawPile: deck, faceUpBottomCard: faceUp, dealer, firstPlayer: first, cutter, cutterJokers: kept };
 }
 
 // ---------- Melds ----------
@@ -665,15 +679,18 @@ function isSellable(card, table) {
 /** The cards the player may throw. A joker can't be thrown unless it is the last card.
  *  A player who hasn't opened can't throw a card that fits a meld on the table. */
 function legalDiscards(hand, hasOpened, table) {
-  if (hand.length === 1) return hand.slice();
-  let allowed = hand.filter((c) => !isJoker(c));
-  if (!hasOpened) allowed = allowed.filter((c) => !isSellable(c, table));
-  return allowed.length === 0 ? hand.slice() : allowed;
+  if (hand.length === 1) return hand.slice();                 // the last card closes the game (it may be a joker)
+  const realCards = hand.filter((c) => !isJoker(c));
+  let allowed = realCards;
+  if (!hasOpened) allowed = realCards.filter((c) => !isSellable(c, table));
+  if (allowed.length > 0) return allowed;
+  if (realCards.length > 0) return realCards;                 // every real card is "sold": throw one of those, never a joker
+  return hand.slice();                                        // only jokers left (almost never happens)
 }
 
 // ---------- Closing and scoring ----------
 
-const CLOSER_POINTS = { normal: -40, normalWithJoker: -80, hand: -120, handWithJoker: -200, ngjyre: -800 };
+const CLOSER_POINTS = { normal: -40, normalWithJoker: -80, hand: -140, handWithJoker: -200, ngjyre: -800 };
 const isBigClose = (t) => t === 'hand' || t === 'handWithJoker' || t === 'ngjyre';
 
 /** A Ngjyre: 14 cards in one suit, ace low, 2 to king, ace high. No joker. */
@@ -716,6 +733,28 @@ function removing(cards, hand) {
   return remaining;
 }
 
+let dealCounter = 0;
+
+// ---------- Dealing again ----------
+// A player with 4 or more pairs (two identical cards, e.g. two 7 of hearts) may ask for a new deal before
+// anyone has played. Whoever holds jokers keeps them; all the other cards are shuffled and dealt again.
+const REDEAL_PAIRS = 4;
+function countPairs(hand) {
+  const seen = new Map();
+  let pairs = 0;
+  for (const c of hand) {
+    if (isJoker(c)) continue;
+    const k = c.rank + ':' + c.suit;
+    const v = (seen.get(k) || 0) + 1;
+    seen.set(k, v);
+    if (v === 2) pairs++;
+  }
+  return pairs;
+}
+function canRedeal(round, seat) {
+  return round.phase === 'firstDiscard' && !!round.players[seat] && countPairs(round.players[seat].hand) >= REDEAL_PAIRS;
+}
+
 class GameRound {
   constructor(deal) {
     this.players = deal.hands.map((h) => ({ hand: h.slice(), hasOpened: false }));
@@ -723,10 +762,26 @@ class GameRound {
     this.discardPile = [];
     this.table = [];
     this.bottomCard = deal.faceUpBottomCard;
+    this.dealer = deal.dealer;
+    this.firstPlayer = deal.firstPlayer;
+    this.dealId = ++dealCounter;                        // changes with every new deal (also when dealt again)
+    this.redeals = 0;
+    this.cutter = deal.cutter;                          // the player to the dealer's left, who cut the deck
+    this.cutJoker = (deal.cutterJokers || 0) > 0;      // he found a joker in the cut and kept it
     this.current = deal.firstPlayer;
     this.phase = 'firstDiscard';       // firstDiscard | draw | play | finished
     this.turn = { openedBeforeThisTurn: false, meldsLaid: [], cardsPlacedOnOthersMelds: [] };
     this.result = null;
+  }
+
+  /** Deal again for everyone (asked by a player with 4+ pairs). Throws a MoveError if it is not allowed. */
+  redeal(seat) {
+    if (!canRedeal(this, seat)) throw new MoveError('cannotRedeal');
+    const n = this.players.length;
+    const keep = this.players.map((p) => p.hand.filter(isJoker));
+    const times = this.redeals + 1;
+    Object.assign(this, new GameRound(dealRound(this.dealer, undefined, n, keep)));
+    this.redeals = times;
   }
 
   clone() {
@@ -1050,6 +1105,7 @@ return {
   meldCandidates, bestOpening, handCloseGroups,
   makeTableMeld, adding, takingJoker, isSellable, legalDiscards, runSuit, setRank,
   isNgjyre, closeType, roundScores, dealerForRound,
+  REDEAL_PAIRS, countPairs, canRedeal,
   MoveError, GameRound, ZholMatch,
   botNextMove, botFallbackMove, botPlayOneMove,
 };
@@ -1101,6 +1157,7 @@ const STR = {
     dealer: 'Ndarësi', opened: 'Hapur', computer: 'Kompjuter', computerPlays: 'Luan kompjuteri', offlineBadge: 'Jo në linjë',
     letPlayerPlay: 'Lojtari luan vetë', letComputerPlay: 'Lëre kompjuterin të luajë', points: (n) => 'Pikët ' + n,
     deck: 'Pakoja', thrown: 'E hedhur', underDeck: (c) => 'Poshtë pakos: ' + c,
+    cutJokerNote: (you, n) => (you ? 'Ti preve xhoker dhe e mbajte.' : n + ' preu xhoker dhe e mbajti.'),
     meldPointsOpened: (p) => 'Pikët e kombinimeve: ' + p, meldPointsNeed: (p, m) => 'Pikët e kombinimeve: ' + p + ' nga ' + m + ' që duhen',
     findMelds: 'Gjej kombinimet', makeMeld: 'Bëj kombinim', open: 'Hap', cancel: 'Anulo', drawDeck: 'Merr nga pakoja',
     take: (c) => 'Merr ' + c, openWith: (c) => 'Hapu me ' + c, bottomBtn: 'Letra poshtë (Mbylle me Hand)',
@@ -1125,6 +1182,8 @@ const STR = {
     eSell: (you, n, c) => (you ? 'Ti shite ' : n + ' shiti ') + c + '.',
     eJoker: (you, n) => (you ? 'Ti more' : n + ' mori') + ' një xhoker!',
     eThrow: (you, n, c) => (you ? 'Ti hodhe ' : n + ' hodhi ') + c + '.',
+    eRedeal: (you, n) => (you ? 'Ti kishe 4 çifte dhe kërkove ndarje të re.' : n + ' kishte 4 çifte dhe kërkoi ndarje të re.') + ' Xhokerët mbetën te lojtarët.',
+    redealBtn: 'Ndaj përsëri (4 çifte)',
     close: {
       normal: (you, n) => (you ? 'Ti e mbylle lojën.' : n + ' e mbylli lojën.'),
       normalWithJoker: (you, n) => (you ? 'Ti e mbylle lojën me xhoker.' : n + ' e mbylli lojën me xhoker.'),
@@ -1145,6 +1204,7 @@ const STR = {
       'Të duhen <b>51 pikë</b> për të hapur. <b>Hapu me ...</b> merr letrën e hedhur dhe hap me të.',
       'Pasi hap: zgjidh një letër dhe prek një <b>kombinim që ndriçon</b> për ta shitur. Zgjidh letrat e vërteta dhe prek një kombinim me xhoker për ta marrë xhokerin.',
       'Zgjidh një letër dhe shtyp <b>Hidh letrën</b> për ta mbaruar radhën. Letra e fundit që hedh e mbyll lojën.',
+      'Nëse ke 4 ose më shumë çifte, para se të luajë kushdo del butoni <b>Ndaj përsëri</b>.',
       'Pas 8 raundesh fiton ai me më pak pikë.',
     ],
     chat: 'Bisedë', chatPlaceholder: 'Shkruaj një mesazh...', send: 'Dërgo', chatEmpty: 'Ende asnjë mesazh. Thuaj diçka!',
@@ -1153,7 +1213,8 @@ const STR = {
       '<h3>Bazat</h3><ul>' +
       '<li>Zhol luhet nga 2 deri në 4 lojtarë me dy pako letra dhe katër xhokerë (108 letra). Një lojë ka 8 raunde. Fiton ai që ka më pak pikë në fund.</li>' +
       '<li>Çdo lojtar merr 14 letra. Lojtari në të djathtë të ndarësit merr 15 dhe fillon duke hedhur një letër. Loja shkon djathtas.</li>' +
-      '<li>Para ndarjes, lojtari në të majtë të ndarësit e pret pakon dhe shikon letrën e fundit të pjesës që preu. Nëse është xhoker, e mban. Çdo letër tjetër vendoset e hapur poshtë pakos.</li></ul>' +
+      '<li><b>Ndarje e re:</b> kush ka 4 ose më shumë çifte (dy letra krejt të njëjta, p.sh. dy 7♥), para se të luajë kushdo, mund të kërkojë që letrat të ndahen përsëri. Kush ka xhokerë i mban; të gjitha letrat e tjera përzihen dhe ndahen nga e para.</li>' +
+      '<li>Para ndarjes, lojtari në të majtë të ndarësit e pret pakon dhe shikon letrën e fundit të pjesës që preu. Nëse është xhoker, e mban dhe shikon letrën tjetër. Letra e parë që nuk është xhoker vendoset e hapur poshtë pakos, kështu që çdo raund ka një letër poshtë për Hand.</li></ul>' +
       '<h3>Radha jote</h3><ul>' +
       '<li>Merr një letër nga pakoja. Pastaj shtro kombinime nëse mundesh dhe hidh një letër.</li>' +
       '<li>Letrën që hodhi lojtari para teje mund ta marrësh vetëm nëse ke hapur, ose nëse hap me të menjëherë (duhet të jetë në kombinimet e tua).</li></ul>' +
@@ -1168,7 +1229,7 @@ const STR = {
       '<li><b>E shitur:</b> nëse nuk ke hapur, nuk mund të hedhësh një letër që shkon në një kombinim në tavolinë. Xhokerin nuk mund ta hedhësh, përveçse si letrën e fundit.</li></ul>' +
       '<h3>Mbyllja</h3><ul>' +
       '<li>E mbyll lojën kur ke shtruar 14 letra dhe hedh letrën e 15-të: <b>−40</b> pikë (<b>−80</b> nëse letra e fundit është xhoker).</li>' +
-      '<li><b>Hand:</b> pa hapur më parë, shtro të 14 letrat në kombinimet e tua njëherësh (51+ pikë) dhe mbyll: <b>−120</b> (<b>−200</b> me xhoker si letër të fundit). Letra e hapur poshtë pakos merret vetëm për të mbyllur me Hand.</li>' +
+      '<li><b>Hand:</b> pa hapur më parë, shtro të 14 letrat në kombinimet e tua njëherësh (51+ pikë) dhe mbyll: <b>−140</b> (<b>−200</b> me xhoker si letër të fundit). Letra e hapur poshtë pakos merret vetëm për të mbyllur me Hand.</li>' +
       '<li><b>Ngjyrë:</b> A-2-3…K-A e së njëjtës shenjë (14 letra, pa xhoker): <b>−800</b>.</li></ul>' +
       '<h3>Pikët e të tjerëve</h3><ul>' +
       '<li>Kush nuk ka hapur: <b>+100</b> (<b>+200</b> pas një Hand ose Ngjyre).</li>' +
@@ -1178,6 +1239,7 @@ const STR = {
       notAValidMeld: 'Këto letra nuk bëjnë kombinim.', notEnoughToOpen: 'Të duhen 51 pikë për të hapur.',
       mustKeepOneCard: 'Mbaj një letër për ta hedhur.', mustOpenFirst: 'Duhet të hapësh më parë.',
       discardPileEmpty: 'Nuk ka letër të hedhur për të marrë.', discardMustBeInMelds: 'Letra e hedhur duhet të jetë në kombinimet e tua.',
+      cannotRedeal: 'Ndarje e re lejohet vetëm me 4 çifte, para se të luajë kushdo.',
       noBottomCard: 'Nuk ka letër poshtë pakos.', bottomCardIsNotAHand: 'Letra poshtë pakos merret vetëm për të mbyllur me Hand.',
       noCardsLeft: 'Nuk ka më letra për të marrë.', badMeldIndex: 'Ky kombinim nuk ekziston.',
       cardCantBeSold: 'Kjo letër nuk shkon këtu.', cannotTakeJoker: 'Me këto letra nuk mund ta marrësh xhokerin.',
@@ -1209,6 +1271,7 @@ const STR = {
     dealer: 'Dealer', opened: 'Opened', computer: 'Computer', computerPlays: 'Computer plays', offlineBadge: 'Offline',
     letPlayerPlay: 'Player plays again', letComputerPlay: 'Let the computer play', points: (n) => 'Points ' + n,
     deck: 'Deck', thrown: 'Thrown', underDeck: (c) => 'Under the deck: ' + c,
+    cutJokerNote: (you, n) => (you ? 'You cut a joker and kept it.' : n + ' cut a joker and kept it.'),
     meldPointsOpened: (p) => 'Meld points: ' + p, meldPointsNeed: (p, m) => 'Meld points: ' + p + ' of ' + m + ' needed',
     findMelds: 'Find melds', makeMeld: 'Make meld', open: 'Open', cancel: 'Cancel', drawDeck: 'Draw from deck',
     take: (c) => 'Take ' + c, openWith: (c) => 'Open with ' + c, bottomBtn: 'Bottom card (close with a Hand)',
@@ -1233,6 +1296,8 @@ const STR = {
     eSell: (you, n, c) => (you ? 'You sold ' : n + ' sold ') + c + '.',
     eJoker: (you, n) => (you ? 'You took' : n + ' took') + ' a joker!',
     eThrow: (you, n, c) => (you ? 'You threw ' : n + ' threw ') + c + '.',
+    eRedeal: (you, n) => (you ? 'You had 4 pairs and asked for a new deal.' : n + ' had 4 pairs and asked for a new deal.') + ' The jokers stayed with their players.',
+    redealBtn: 'Deal again (4 pairs)',
     close: {
       normal: (you, n) => (you ? 'You closed the game.' : n + ' closed the game.'),
       normalWithJoker: (you, n) => (you ? 'You closed the game with a joker.' : n + ' closed the game with a joker.'),
@@ -1253,6 +1318,7 @@ const STR = {
       'You need <b>51 points</b> to open. <b>Open with ...</b> takes the thrown card and opens with it.',
       'After you open: select a card and tap a <b>glowing meld</b> to sell it. Select the real card(s) and tap a meld with a joker to take the joker.',
       'Select one card and press <b>Throw card</b> to end your turn. The last card you throw closes the game.',
+      'If you have 4 or more pairs, the <b>Deal again</b> button appears before anyone has played.',
       'After 8 rounds the lowest total wins.',
     ],
     chat: 'Chat', chatPlaceholder: 'Write a message...', send: 'Send', chatEmpty: 'No messages yet. Say something!',
@@ -1261,7 +1327,8 @@ const STR = {
       '<h3>The basics</h3><ul>' +
       '<li>Zhol is played by 2 to 4 players with two decks of cards and four jokers (108 cards). A game has 8 rounds. The player with the fewest points at the end wins.</li>' +
       '<li>Each player gets 14 cards. The player to the right of the dealer gets 15 and starts by throwing one card. Play goes to the right.</li>' +
-      '<li>Before dealing, the player to the left of the dealer cuts the deck and looks at the bottom card of the part he lifted. A joker he keeps. Any other card goes face up under the deck.</li></ul>' +
+      '<li><b>New deal:</b> a player with 4 or more pairs (two identical cards, e.g. two 7♥) may ask, before anyone has played, for the cards to be dealt again. Whoever has jokers keeps them; all the other cards are shuffled and dealt again.</li>' +
+      '<li>Before dealing, the player to the left of the dealer cuts the deck and looks at the bottom card of the part he lifted. A joker he keeps, and then he looks at the next card. The first card that is not a joker goes face up under the deck, so every round has a bottom card for a Hand.</li></ul>' +
       '<h3>Your turn</h3><ul>' +
       '<li>Draw a card from the deck. Then lay down melds if you can, and throw one card.</li>' +
       '<li>You may take the card the previous player threw only if you have opened, or if you open with it right away (it must be part of your melds).</li></ul>' +
@@ -1276,7 +1343,7 @@ const STR = {
       '<li><b>E shitur (sold):</b> if you have not opened, you cannot throw a card that fits a meld on the table. You can never throw a joker, except as your last card.</li></ul>' +
       '<h3>Closing</h3><ul>' +
       '<li>You close the game when you have laid down 14 cards and throw your 15th: <b>−40</b> points (<b>−80</b> if the last card is a joker).</li>' +
-      '<li><b>Hand:</b> without opening before, lay down all 14 cards in your own melds at once (51+ points) and close: <b>−120</b> (<b>−200</b> with a joker as the last card). The face-up card under the deck can only be taken to close with a Hand.</li>' +
+      '<li><b>Hand:</b> without opening before, lay down all 14 cards in your own melds at once (51+ points) and close: <b>−140</b> (<b>−200</b> with a joker as the last card). The face-up card under the deck can only be taken to close with a Hand.</li>' +
       '<li><b>Ngjyrë:</b> A-2-3…K-A of one suit (14 cards, no joker): <b>−800</b>.</li></ul>' +
       '<h3>Points for the others</h3><ul>' +
       '<li>Who has not opened: <b>+100</b> (<b>+200</b> after a Hand or Ngjyrë).</li>' +
@@ -1286,6 +1353,7 @@ const STR = {
       notAValidMeld: "These cards don't make a meld.", notEnoughToOpen: 'You need 51 points to open.',
       mustKeepOneCard: 'Keep one card to throw.', mustOpenFirst: 'You have to open first.',
       discardPileEmpty: 'There is no thrown card to take.', discardMustBeInMelds: 'The thrown card must be part of your melds.',
+      cannotRedeal: 'A new deal is only allowed with 4 pairs, before anyone has played.',
       noBottomCard: 'There is no card under the deck.', bottomCardIsNotAHand: 'The card under the deck can only be taken to close with a Hand.',
       noCardsLeft: 'No cards left to draw.', badMeldIndex: "That meld doesn't exist.",
       cardCantBeSold: "That card doesn't fit there.", cannotTakeJoker: "You can't take that joker with these cards.",
@@ -1326,6 +1394,7 @@ function describe(ev) {
     case 'sell': return t('eSell', you, name, c);
     case 'takeJoker': return t('eJoker', you, name);
     case 'discard': return t('eThrow', you, name, c);
+    case 'redeal': return t('eRedeal', you, name);
     default: return '';
   }
 }
@@ -1371,7 +1440,7 @@ const solo = {
   match: null, token: 0, seq: 0,
   start() { this.match = new Z.ZholMatch(); this.token++; this.seq = 0; },
   round() { return this.match.round; },
-  roundKey() { return this.match.round; },
+  roundKey() { return 'solo:' + this.match.round.dealId; },
   mySeat() { return 0; },
   names() { return [t('you')].concat(SOLO_NAMES.slice(1)); },
   seatInfo(seat) { return { isBot: seat !== 0, connected: true, botPlaying: false }; },
@@ -1398,6 +1467,13 @@ const solo = {
     return true;
   },
   send(move) { return this.perform(0, move); },
+  redeal() {
+    try { this.match.round.redeal(0); } catch (e) { if (e instanceof Z.MoveError) return e.code; throw e; }
+    this.lastEvent = { seq: ++this.seq, seat: 0, type: 'redeal', card: null, count: 0, meld: null, cards: null };
+    onGameChange(this.lastEvent);
+    this.scheduleBots();
+    return true;
+  },
   scheduleBots() {
     const token = ++this.token;
     const step = () => {
@@ -1413,7 +1489,8 @@ const solo = {
       setTimeout(step, pauseAfter(this.lastEvent));
     };
     const r = this.match.round;
-    if (r.phase !== 'finished' && r.current !== 0) setTimeout(step, BOT_DELAY);
+    const waitForYou = BOT_DELAY > 0 && r.phase === 'firstDiscard' && Z.canRedeal(r, 0) ? 6000 : 0;
+    if (r.phase !== 'finished' && r.current !== 0) setTimeout(step, BOT_DELAY + waitForYou);
   },
   nextRound() {
     if (this.match.roundsPlayed + 1 >= Z.TOTAL_ROUNDS) this.start(); else this.match.startNextRound();
@@ -1461,6 +1538,8 @@ const online = {
       discardPile: g.discardTop ? [g.discardTop] : [],
       drawPile: { length: g.drawCount },
       bottomCard: g.bottomCard,
+      cutter: g.cutter,
+      cutJoker: g.cutJoker,
       result: g.result,
     };
   },
@@ -1537,6 +1616,9 @@ const online = {
     if (move.atHighEnd !== undefined) out.atHighEnd = move.atHighEnd;
     return out;
   },
+  redeal() {
+    return this.api('/api/redeal', { code: this.session.code, token: this.session.token }).then(() => true, (e) => e.code || 'generic');
+  },
   send(move) {
     return this.api('/api/move', { code: this.session.code, token: this.session.token, move: this.serialize(move) })
       .then(() => true, (e) => e.code || 'generic');
@@ -1580,7 +1662,12 @@ function sorted(cards, mode) {
 /** At the start of each round your hand is sorted once. After that it keeps YOUR order. */
 function ensureOrder() {
   const key = A().roundKey();
-  if (ui.orderKey !== key) { ui.order = sorted(me().hand, ui.sortMode).map((c) => c.id); ui.orderKey = key; }
+  if (ui.orderKey !== key) {
+    // a new deal (new round, or dealt again): start sorted, and forget cards picked from the old hand
+    ui.order = sorted(me().hand, ui.sortMode).map((c) => c.id);
+    if (ui.orderKey !== null) { ui.selected = new Set(); ui.staged = []; ui.openingWithDiscard = false; }
+    ui.orderKey = key;
+  }
 }
 function sortHand(mode) {
   ui.sortMode = mode; saveLocal('zhol.sortMode', mode);
@@ -1863,7 +1950,10 @@ function onGameChange(ev) {
 }
 
 function refreshDrawOptions() {
+  // The game no longer checks in advance whether you can open with the thrown card or close with the
+  // bottom card: you find that out yourself, like at a real table.
   ui.canOpenWithDiscard = false; ui.canTakeBottom = false;
+  return;
   if (!round() || !isMyTurn() || round().phase !== 'draw' || me().hasOpened) return;
   const top = topDiscard();
   if (top) { const plan = Z.bestOpening(me().hand.concat([top]), top); ui.canOpenWithDiscard = !!(plan && plan.canOpen); }
@@ -1883,6 +1973,18 @@ function perform(move) {
     render();
   };
   const res = A().send(move);
+  if (res && typeof res.then === 'function') { ui.busy = true; res.then(done); } else done(res);
+}
+
+function askRedeal() {
+  if (ui.busy) return;
+  const res = A().redeal();
+  const done = (r) => {
+    ui.busy = false;
+    if (r !== true) { ui.message = errText(r, 'generic'); render(); return; }
+    resetTurnState();
+    render();
+  };
   if (res && typeof res.then === 'function') { ui.busy = true; res.then(done); } else done(res);
 }
 
@@ -2151,7 +2253,8 @@ function centerHTML() {
   return '<div class="center"><div class="center-piles">' + deck +
     '<div class="thrown" id="discard">' + (top ? cardHTML(top, CARD_PILE, { landing: !!ui.landing.discard }) : emptySlotHTML(CARD_PILE)) + '</div></div>' +
     '<div class="center-labels"><span>' + t('deck') + '</span><span>' + t('thrown') + '</span></div>' +
-    (r.bottomCard ? '<div class="center-note">' + t('underDeck', cardText(r.bottomCard)) + '</div>' : '') + '</div>';
+    (r.bottomCard ? '<div class="center-note">' + t('underDeck', cardText(r.bottomCard)) + '</div>' : '') +
+    (r.cutJoker && r.cutter !== undefined && r.cutter !== null ? '<div class="center-note cut-joker">★ ' + t('cutJokerNote', r.cutter === mySeat(), esc(A().names()[r.cutter])) + '</div>' : '') + '</div>';
 }
 
 function tableHTML() {
@@ -2177,10 +2280,16 @@ function stagedHTML() {
   return html;
 }
 
+/** Shown only to a player with 4+ pairs, before anyone has played (it doesn't have to be your turn). */
+function redealHTML() {
+  if (!round() || !Z.canRedeal(round(), mySeat())) return '';
+  return '<div class="actions">' + btn(t('redealBtn'), 'redeal', 'orange', ui.busy) + '</div>';
+}
+
 function actionsHTML() {
-  if (!isMyTurn()) return '';
+  if (!isMyTurn()) return redealHTML();
   const r = round();
-  let html = '<div class="actions">';
+  let html = redealHTML() + '<div class="actions">';
   if (r.phase === 'draw') {
     if (ui.openingWithDiscard) {
       html += btn(t('findMelds'), 'auto', 'green') + btn(t('makeMeld'), 'makeMeld', 'yellow', selectedCards().length < 3) +
@@ -2190,9 +2299,9 @@ function actionsHTML() {
       const top = topDiscard();
       if (top) {
         html += me().hasOpened ? btn(t('take', cardText(top)), 'takeDiscard', 'orange', ui.busy)
-                               : btn(t('openWith', cardText(top)), 'beginOpen', 'orange', !ui.canOpenWithDiscard);
+                               : btn(t('openWith', cardText(top)), 'beginOpen', 'orange');
       }
-      if (!me().hasOpened && r.bottomCard) html += btn(t('bottomBtn'), 'takeBottom', 'green', !ui.canTakeBottom || ui.busy);
+      if (!me().hasOpened && r.bottomCard) html += btn(t('bottomBtn'), 'takeBottom', 'green', ui.busy);
     }
   } else {
     if (r.phase === 'play') {
@@ -2322,6 +2431,7 @@ function render() {
     layoutHand(h2);
   }
   ui.lastRects = snapshot();
+  if (presence.vid && pageNow() !== presence.page) ping();
 }
 
 function layoutHand(handEl) {
@@ -2462,6 +2572,7 @@ app.addEventListener('click', (e) => {
     case 'sortSuit': sortHand('suit'); break;
     case 'sortRank': sortHand('rank'); break;
     case 'nextRound': A().nextRound(); break;
+    case 'redeal': askRedeal(); break;
     case 'takeover': online.takeover(index, el.getAttribute('data-on') === '1'); break;
     case 'chat': openChat(); break;
     case 'lang': setLanguage(el.getAttribute('data-lang')); break;
@@ -2611,6 +2722,38 @@ window.__zholOnline = online;
 window.__zholSolo = solo;
 window.__zholChat = chat;
 
+// ============================================================
+// "I'm here" signal for your admin page: anonymous (a random id, no name, no cookies)
+// ============================================================
+
+const presence = { vid: '', page: '' };
+function pageNow() {
+  if (ui.screen === 'game') return ui.mode === 'solo' ? 'game-solo' : 'game-online';
+  if (ui.screen === 'lobby') return 'lobby';
+  return 'menu';
+}
+function ping() {
+  if (!presence.vid || typeof fetch !== 'function' || document.hidden) return;
+  presence.page = pageNow();
+  try {
+    fetch('/api/ping', { method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+      body: JSON.stringify({ vid: presence.vid, page: presence.page }) }).catch(() => {});
+  } catch (e) { /* offline or blocked: never disturb the game */ }
+}
+function startPresence() {
+  try { presence.vid = localStorage.getItem('zhol.vid') || ''; } catch (e) { presence.vid = ''; }
+  if (!/^[a-z0-9]{8,40}$/.test(presence.vid)) {
+    let id = '';
+    try { id = Array.from(window.crypto.getRandomValues(new Uint8Array(16)), (b) => (b % 36).toString(36)).join(''); }
+    catch (e) { for (let i = 0; i < 16; i++) id += Math.floor(Math.random() * 36).toString(36); }
+    presence.vid = id;
+    saveLocal('zhol.vid', id);
+  }
+  ping();
+  setInterval(ping, 30000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+}
+
 function setLanguage(lang) {
   if (lang !== 'sq' && lang !== 'en') return;
   ui.lang = lang;
@@ -2627,6 +2770,7 @@ function setLanguage(lang) {
   brand.textContent = 'Powered by Gentronics Lab';
   document.body.appendChild(brand);
   buildChatUI();
+  startPresence();
   let params;
   try { params = new URLSearchParams(location.search); } catch (e) { params = null; }
   const linkCode = params && params.get('kod');
