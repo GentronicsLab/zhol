@@ -47,7 +47,7 @@ footer { text-align: center; font-size: 11px; color: var(--muted); margin-top: 3
 
   function statsView(s) {
     var games = s.games.map(function (g) {
-      return '<tr><td><b>' + esc(g.code) + '</b></td><td>' + esc(g.players.join(', ')) + '</td><td>' + (g.started ? 'Round ' + g.round + ' of 8' : 'Waiting room') + '</td></tr>';
+      return '<tr><td><b>' + esc(g.code) + '</b></td><td>' + esc(g.players.join(', ')) + '</td><td>' + (g.type === 'pishpirik' ? 'Pishpirik, ' : 'Zhol, ') + (g.started ? (g.type === 'pishpirik' ? 'round ' + g.round : 'round ' + g.round + ' of 8') : 'waiting room') + '</td></tr>';
     }).join('');
     app.innerHTML = '<h1>Zhol admin</h1>' +
       '<h2>Right now</h2><div class="grid">' +

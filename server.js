@@ -17,6 +17,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 const Z = require('./zhol-engine.js');
+const P = require('./pishpirik-engine.js');           // the second game: Pishpirik
 
 const PORT = parseInt(process.env.PORT || '3000', 10);
 const BOT_DELAY = process.env.ZHOL_BOT_DELAY !== undefined ? parseInt(process.env.ZHOL_BOT_DELAY, 10) : 900;
@@ -67,7 +68,8 @@ function statsNow() {
     if (connected.length === 0) continue;
     if (g.started) { now.gamesRunning++; now.playingWithFriends += connected.length; }
     else now.inWaitingRooms += connected.length;
-    list.push({ code: g.code, started: g.started, round: g.started ? g.match.roundsPlayed + 1 : 0, players: g.players.map((p) => p.name) });
+    const roundsDone = !g.started ? 0 : g.type === 'pishpirik' ? g.pish.roundsPlayed : g.match.roundsPlayed;
+    list.push({ code: g.code, type: g.type, started: g.started, round: g.started ? roundsDone + 1 : 0, players: g.players.map((p) => p.name) });
   }
   // the live connections are exact; make sure "on the site" is never smaller than the people we can see playing
   now.onSite = Math.max(now.onSite, now.inMenus + now.vsComputer + now.inWaitingRooms + now.playingWithFriends);
@@ -129,10 +131,12 @@ function findPlayer(body) {
 
 // ---------- Game state ----------
 
-function createGame(hostName) {
+function createGame(hostName, type) {
   const code = newCode();
   const game = {
     code, createdAt: Date.now(), lastActive: Date.now(),
+    type: type === 'pishpirik' ? 'pishpirik' : 'zhol',
+    pish: null,            // the Pishpirik game (when type is 'pishpirik')
     players: [], hostId: null,
     started: false,
     seats: null,           // [{ playerId | null, botName }]
@@ -149,6 +153,11 @@ function createGame(hostName) {
 
 function addPlayer(game, name) {
   const player = { id: crypto.randomBytes(6).toString('hex'), token: newToken(), name: cleanName(name, game), clients: new Set(), botTakeover: false };
+  if (game.type === 'pishpirik') {
+    // join the team with fewer people (the game maker starts in team 1)
+    const inTeam = [0, 1].map((t) => game.players.filter((p) => p.team === t).length);
+    player.team = inTeam[0] <= inTeam[1] ? 0 : 1;
+  }
   game.players.push(player);
   return player;
 }
@@ -170,7 +179,26 @@ function seatName(game, seat) {
   return p ? p.name : s.botName;
 }
 
+/** Pishpirik: 4 seats, team 1 at seats 0 and 2, team 2 at seats 1 and 3 (partners across). The computer fills empty seats. */
+function startPishpirik(game) {
+  const humans = game.players.slice(0, 4);
+  const used = new Set(humans.map((p) => p.name.toLowerCase()));
+  const botNames = BOT_NAMES.concat(['Vera', 'Dren']).filter((n) => !used.has(n.toLowerCase()));
+  const byTeam = [humans.filter((p) => p.team === 0), humans.filter((p) => p.team === 1)];
+  game.seats = [0, 1, 2, 3].map((seat) => {
+    const team = seat % 2;
+    const p = byTeam[team].shift();
+    return p ? { playerId: p.id, botName: botNames[seat] || 'Kompjuteri' } : { playerId: null, botName: botNames.shift() || 'Kompjuteri' };
+  });
+  game.pish = new P.PishMatch();
+  game.match = null;
+  game.started = true;
+  game.event = null;
+  game.roundId++;
+}
+
 function startGame(game) {
+  if (game.type === 'pishpirik') return startPishpirik(game);
   // Only people: seats in the order they joined, the game maker first. Play goes to the right in seat order.
   const humans = game.players.slice(0, 4);
   game.seats = humans.map((p, i) => ({ playerId: p.id, botName: BOT_NAMES[i] }));   // botName: only if the computer has to step in
@@ -204,6 +232,17 @@ function doMove(game, seat, move) {
   scheduleBots(game);
 }
 
+/** A Pishpirik card is played: remember what happened and tell everyone. */
+function doPishMove(game, seat, cardId) {
+  const m = game.pish;
+  const ev = m.round.play(seat, cardId);               // throws P.MoveError if not allowed
+  if (ev.roundOver) { m.addRound(); rollDay(); stats.roundsWithFriends++; }
+  game.event = Object.assign({ seq: ++game.eventSeq, type: 'pish' }, ev);
+  game.lastActive = Date.now();
+  broadcast(game);
+  scheduleBots(game);
+}
+
 /** How long a computer player waits before its next move, so people can follow what happened. */
 function pauseAfter(ev) {
   if (BOT_DELAY === 0 || !ev) return BOT_DELAY;
@@ -212,7 +251,23 @@ function pauseAfter(ev) {
   return BOT_DELAY;
 }
 
+function schedulePishBots(game) {
+  if (game.botTimer) return;
+  const r = game.pish && game.pish.round;
+  if (!r || r.phase !== 'play' || !isBotSeat(game, r.current)) return;
+  const ev = game.event;
+  const pause = BOT_DELAY === 0 ? 0 : BOT_DELAY + (ev && ev.pishpirik ? 1600 : ev && ev.took ? 700 : 0) + (ev && ev.newDeal ? 1200 : 0);
+  game.botTimer = setTimeout(() => {
+    game.botTimer = null;
+    const rr = game.pish && game.pish.round;
+    if (!rr || rr.phase !== 'play' || !isBotSeat(game, rr.current)) return;
+    const seat = rr.current;
+    doPishMove(game, seat, P.botChoose(rr, seat).id);
+  }, pause);
+}
+
 function scheduleBots(game) {
+  if (game.type === 'pishpirik') return schedulePishBots(game);
   if (game.botTimer) return;
   const round = game.match && game.match.round;
   if (!round || round.phase === 'finished' || !isBotSeat(game, round.current)) return;
@@ -243,7 +298,13 @@ function viewFor(game, player) {
     chat: game.chat.slice(-50),
     game: null,
   };
+  view.type = game.type;
+  if (game.type === 'pishpirik') {
+    view.players.forEach((vp) => { const p = game.players.find((x) => x.id === vp.id); vp.team = p ? p.team : 0; });
+    view.you.team = player.team;
+  }
   if (!game.started) return view;
+  if (game.type === 'pishpirik') { view.game = pishViewFor(game, player); return view; }
   const m = game.match, r = m.round;
   const mySeat = seatOf(game, player);
   const ev = game.event;
@@ -277,6 +338,38 @@ function viewFor(game, player) {
     event: ev ? { seq: ev.seq, seat: ev.seat, type: ev.type, count: ev.count, meld: ev.meld, cards: ev.cards, card: (ev.isPublic || ev.seat === mySeat) ? ev.card : null } : null,
   };
   return view;
+}
+
+function pishViewFor(game, player) {
+  const m = game.pish, r = m.round;
+  const mySeat = seatOf(game, player);
+  const ev = game.event;
+  return {
+    type: 'pishpirik',
+    mySeat,
+    seats: game.seats.map((st, s) => {
+      const p = st.playerId ? game.players.find((x) => x.id === st.playerId) : null;
+      return { name: seatName(game, s), isBot: !st.playerId, botPlaying: !!(p && p.botTakeover), connected: p ? p.clients.size > 0 : true, handCount: r.hands[s].length, team: s % 2 };
+    }),
+    phase: r.phase,
+    current: r.current,
+    dealer: r.dealer,
+    cutter: r.cutter,
+    dealNo: r.dealNo,
+    myHand: mySeat >= 0 ? r.hands[mySeat] : [],
+    middleTop: r.topCard,                          // only the top card of the middle can be seen
+    middleCount: r.middle.length,
+    hidden: r.hidden,
+    dealerCards: r.dealerCards,                    // face up for everyone
+    stockCount: r.stock.length,
+    piles: [0, 1].map((t) => ({ count: r.piles[t].length, pishpiriks: r.pishpiriks[t] })),
+    result: r.result,
+    totals: m.totals,
+    roundsPlayed: m.roundsPlayed,
+    winner: m.winner,
+    roundId: game.roundId,
+    event: ev && ev.type === 'pish' ? ev : null,
+  };
 }
 
 function send(res, view) { res.write('data: ' + JSON.stringify(view) + '\n\n'); }
@@ -316,8 +409,8 @@ const routes = {
   'POST /api/create': (body) => {
     const name = cleanName(body.name);
     if (!name) throw new ApiError('noName');
-    const { game, player } = createGame(name);
-    return { code: game.code, token: player.token };
+    const { game, player } = createGame(name, body.type);
+    return { code: game.code, token: player.token, type: game.type };
   },
   'POST /api/join': (body) => {
     const game = games.get(String(body.code || '').toUpperCase().trim());
@@ -328,7 +421,7 @@ const routes = {
     const player = addPlayer(game, body.name);
     game.lastActive = Date.now();
     broadcast(game);
-    return { code: game.code, token: player.token };
+    return { code: game.code, token: player.token, type: game.type };
   },
   'POST /api/check': (body) => { findPlayer(body); return { ok: true }; },
   'POST /api/ping': (body) => {
@@ -371,9 +464,29 @@ const routes = {
     scheduleBots(game);
     return { ok: true };
   },
+  'POST /api/team': (body) => {
+    // Pishpirik waiting room: choose a team (at most 2 people in a team)
+    const { game, player } = findPlayer(body);
+    if (game.type !== 'pishpirik' || game.started) throw new ApiError('started');
+    const team = body.team === 1 ? 1 : 0;
+    if (player.team !== team && game.players.filter((p) => p.team === team).length >= 2) throw new ApiError('teamFull');
+    player.team = team;
+    broadcast(game);
+    return { ok: true };
+  },
   'POST /api/move': (body) => {
     const { game, player } = findPlayer(body);
     if (!game.started) throw new ApiError('notStarted');
+    if (game.type === 'pishpirik') {
+      const seat = seatOf(game, player);
+      const r = game.pish.round;
+      if (seat < 0 || r.current !== seat || r.phase !== 'play' || player.botTakeover) throw new ApiError('notYourTurn');
+      try { doPishMove(game, seat, (body.move || {}).card); } catch (e) {
+        if (e instanceof P.MoveError) throw new ApiError(e.code);
+        throw e;
+      }
+      return { ok: true };
+    }
     const seat = seatOf(game, player);
     const r = game.match.round;
     if (seat < 0 || r.current !== seat || r.phase === 'finished' || player.botTakeover) throw new ApiError('notYourTurn');
@@ -389,6 +502,7 @@ const routes = {
     // a player with 4 or more pairs asks for a new deal before anyone has played; jokers stay with their holders
     const { game, player } = findPlayer(body);
     if (!game.started) throw new ApiError('notStarted');
+    if (game.type !== 'zhol') throw new ApiError('cannotRedeal');
     const seat = seatOf(game, player);
     try { game.match.round.redeal(seat); } catch (e) {
       if (e instanceof Z.MoveError) throw new ApiError(e.code);
@@ -404,6 +518,16 @@ const routes = {
   'POST /api/next': (body) => {
     const { game, player } = findPlayer(body);
     if (player.id !== game.hostId) throw new ApiError('notHost', 403);
+    if (game.started && game.type === 'pishpirik') {
+      const m = game.pish;
+      if (m.round.phase !== 'finished') return { ok: true };
+      if (m.isFinished) game.pish = new P.PishMatch(); else m.nextRound();
+      game.event = null;
+      game.roundId++;
+      broadcast(game);
+      scheduleBots(game);
+      return { ok: true };
+    }
     if (!game.started || game.match.round.phase !== 'finished') return { ok: true };
     if (game.match.roundsPlayed + 1 >= Z.TOTAL_ROUNDS) game.match = new Z.ZholMatch(game.seats.length);      // the last round: a new game
     else game.match.startNextRound();
