@@ -265,6 +265,52 @@ label { display: flex; flex-direction: column; gap: 4px; text-align: left; font-
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); background: rgba(255, 213, 74, 0); }
 }
 @media (prefers-reduced-motion: reduce) { .meld.fresh { animation: none; } }
+
+/* ---- Pishpirik ---- */
+.pscore { font-size: 13px; white-space: nowrap; }
+.pscore .we { color: var(--green); } .pscore .they { color: #ffab91; } .pscore small { color: var(--muted); }
+.sound-btn { font-size: 14px; }
+.badge.team-we { background: rgba(123, 216, 143, 0.5); } .badge.team-they { background: rgba(255, 171, 145, 0.5); }
+.ptable .zone-top, .ptable .zone-bottom { max-height: none; }
+.pcenter { gap: 6px; }
+.pmid { position: relative; width: 70px; height: 84px; display: flex; align-items: center; justify-content: center; }
+.pmid .card.top { position: relative; z-index: 2; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4); }
+.pmid-under { position: absolute; width: 52px; height: 75px; border-radius: 7px; background: var(--back); border: 2px solid #fff; left: calc(9px - var(--k) * 4px); top: calc(4px + var(--k) * 1px); transform: rotate(calc(-8deg + var(--k) * 5deg)); }
+.pcount { position: absolute; right: -8px; top: -6px; z-index: 3; background: #111; color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; padding: 1px 6px; }
+.pinfo { font-size: 11px; color: var(--muted); }
+.pdealer { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 10px; color: #e1bee7; }
+.pdealer-cards { display: flex; gap: 2px; }
+.ppiles { display: flex; gap: 6px; }
+.ppile { flex: 1; background: var(--panel); border-radius: 8px; padding: 5px 8px; min-height: 30px; }
+.ppile.we { border-left: 4px solid var(--green); } .ppile.they { border-left: 4px solid #ffab91; }
+.ppile-head { display: flex; justify-content: space-between; font-size: 12px; }
+.pish-row { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.pish-card { position: relative; display: inline-flex; }
+.pish-card i { position: absolute; bottom: -4px; right: -6px; font-style: normal; font-size: 9px; font-weight: 800; background: var(--yellow); color: #000; border-radius: 6px; padding: 0 3px; }
+.phand { justify-content: center; }
+.phand .card { margin-left: 4px; }
+.phand .card:first-child { margin-left: 0; }
+.teams { display: flex; gap: 8px; text-align: left; }
+.team-box { flex: 1; background: rgba(0, 0, 0, 0.18); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.team-box.mine { box-shadow: 0 0 0 2px var(--yellow); }
+.team-box h3 { margin: 0; font-size: 15px; text-align: center; }
+.rules-tabs { display: flex; justify-content: center; gap: 6px; margin: 4px 0 6px; }
+.ptable-res th, .ptable-res td { padding: 3px 2px; font-size: 12px; }
+#pish-big { position: fixed; left: 50%; top: 38%; transform: translate(-50%, -50%) scale(0.4); z-index: 45; pointer-events: none; text-align: center; opacity: 0;
+  background: radial-gradient(circle, rgba(255, 213, 74, 0.95) 0%, rgba(255, 159, 67, 0.92) 70%); color: #3b1d00; border-radius: 22px; padding: 16px 26px; box-shadow: 0 0 40px rgba(255, 213, 74, 0.8); }
+#pish-big b { display: block; font-size: 34px; letter-spacing: 2px; }
+#pish-big span { display: block; font-size: 15px; font-weight: 700; margin-top: 2px; }
+#pish-big.removed { background: radial-gradient(circle, rgba(239, 107, 107, 0.95) 0%, rgba(160, 40, 40, 0.92) 70%); color: #fff; box-shadow: 0 0 40px rgba(239, 107, 107, 0.7); }
+#pish-big.show { animation: pishPop 2000ms cubic-bezier(0.22, 0.61, 0.36, 1) both; }
+#pish-big.double.show { animation-duration: 2400ms; }
+@keyframes pishPop {
+  0% { opacity: 0; transform: translate(-50%, -50%) scale(0.4) rotate(-8deg); }
+  14% { opacity: 1; transform: translate(-50%, -50%) scale(1.15) rotate(3deg); }
+  24% { transform: translate(-50%, -50%) scale(1) rotate(0deg); }
+  78% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -70%) scale(0.9); }
+}
+@media (prefers-reduced-motion: reduce) { #pish-big.show { animation: pishFade 2000ms both; } @keyframes pishFade { 0%, 100% { opacity: 0; } 10%, 85% { opacity: 1; } } }
 </style>
 </head>
 <body>
@@ -673,7 +719,8 @@ function takingJoker(m, given) {
 /** "E shitur": a card that fits a meld on the table. Jokers don't count here. */
 function isSellable(card, table) {
   if (isJoker(card)) return false;
-  return table.some((m) => adding(m, card) !== null);
+  // "sold": it fits at the end of a meld on the table, OR it is the real card a joker on the table stands for
+  return table.some((m) => adding(m, card) !== null || takingJoker(m, [card]) !== null);
 }
 
 /** The cards the player may throw. A joker can't be thrown unless it is the last card.
@@ -1113,6 +1160,281 @@ return {
 
 </script>
 <script>
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.Pish = factory();
+}(typeof self !== 'undefined' ? self : this, function () {
+'use strict';
+
+// ============================================================
+// Pishpirik rules engine. 4 players in 2 teams: seats 0 and 2 are one team, seats 1 and 3 the other
+// (partners sit across from each other). Seats go to the right, the direction of play.
+// One deck of 52 cards, no jokers. Cards: { id, rank, suit }, rank 1 = ace ... 11 = jack, 12 = queen, 13 = king.
+// ============================================================
+
+const SUITS = ['hearts', 'diamonds', 'clubs', 'spades'];
+const JACK = 11;
+const TARGET = 151;
+const PLAYERS = 4;
+
+let random = Math.random;
+function setRandom(fn) { random = fn || Math.random; }
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(random() * (i + 1));
+    const t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+  }
+  return arr;
+}
+function makeDeck() {
+  const cards = [];
+  let id = 0;
+  for (const suit of SUITS) for (let rank = 1; rank <= 13; rank++) cards.push({ id: id++, rank, suit });
+  return cards;
+}
+const teamOf = (seat) => seat % 2;
+const isJack = (c) => c.rank === JACK;
+
+/** Points of one taken card: Q, J, K, aces and 10s 1 each, the 10 of diamonds 2, the 2 of clubs 1. */
+function cardPoints(c) {
+  if (c.rank === 10) return c.suit === 'diamonds' ? 2 : 1;
+  if (c.rank === 2) return c.suit === 'clubs' ? 1 : 0;
+  if (c.rank === 1 || c.rank >= 11) return 1;
+  return 0;
+}
+
+class MoveError extends Error {
+  constructor(code) { super(code); this.code = code; }
+}
+
+let roundCounter = 0;
+
+// ============================================================
+// One round: two deals of 6 cards each
+// ============================================================
+
+class PishRound {
+  constructor(dealer) {
+    const deck = shuffle(makeDeck());          // index 0 = top, the end = the bottom
+    this.id = ++roundCounter;
+    this.dealer = dealer;
+    this.firstPlayer = (dealer + 1) % PLAYERS;  // to the dealer's right: gets the first cards and plays first
+    this.cutter = (dealer + PLAYERS - 1) % PLAYERS;
+
+    // The cut: 3 bottom cards face down in the middle, then one face up on top of them.
+    // A jack can't lie face up in the middle: it goes to the dealer, and the next card is tried.
+    const faceDown = [deck.pop(), deck.pop(), deck.pop()];
+    this.dealerCards = [];                     // face up for everyone to see; the dealer gets them in the second deal
+    let up = deck.pop();
+    while (isJack(up)) { this.dealerCards.push(up); up = deck.pop(); }
+    // Then one more card is always turned face up for the dealer. If it is a jack, the next one too,
+    // until a card that is not a jack shows.
+    for (;;) {
+      const c = deck.pop();
+      this.dealerCards.push(c);
+      if (!isJack(c)) break;
+    }
+    this.middle = faceDown.concat([up]);
+    this.hidden = 3;                           // the first 3 cards of the middle are face down until someone takes them
+    this.stock = deck;
+    this.hands = [[], [], [], []];
+    this.piles = [[], []];                     // the cards each team has taken
+    this.pishpiriks = [[], []];                // face-up Pishpiriks of each team: { card, value }
+    this.seen = [up].concat(this.dealerCards); // cards everyone has seen (the computer players remember them)
+    this.lastTaker = null;
+    this.dealNo = 0;
+    this.current = this.firstPlayer;
+    this.phase = 'play';                       // play | finished
+    this.result = null;
+    this.deal();
+  }
+
+  /** 3 cards to each player starting to the dealer's right, then 3 more. In the second deal the dealer
+   *  also gets the face-up dealer cards, as his last cards. */
+  deal() {
+    this.dealNo += 1;
+    const reserved = this.dealNo === 2 ? this.dealerCards.slice() : [];
+    let fromStockForDealer = 6 - reserved.length;
+    for (let pass = 0; pass < 2; pass++) {
+      for (let step = 0; step < PLAYERS; step++) {
+        const seat = (this.firstPlayer + step) % PLAYERS;
+        for (let k = 0; k < 3; k++) {
+          if (seat === this.dealer && this.dealNo === 2) {
+            if (fromStockForDealer > 0) { this.hands[seat].push(this.stock.shift()); fromStockForDealer--; }
+            else this.hands[seat].push(reserved.shift());
+          } else {
+            this.hands[seat].push(this.stock.shift());
+          }
+        }
+      }
+    }
+    if (this.dealNo === 2) this.dealerCards = [];
+    this.current = this.firstPlayer;
+  }
+
+  get topCard() { return this.middle.length ? this.middle[this.middle.length - 1] : null; }
+
+  /** Would this card take the middle? Same rank as the top card, or a jack on any cards. */
+  takes(card) {
+    const top = this.topCard;
+    return !!top && (card.rank === top.rank || isJack(card));
+  }
+
+  /** Play a card. Returns what happened (for messages, sounds and animations). Throws MoveError if not allowed. */
+  play(seat, cardId) {
+    if (this.phase !== 'play') throw new MoveError('wrongPhase');
+    if (seat !== this.current) throw new MoveError('notYourTurn');
+    const hand = this.hands[seat];
+    const at = hand.findIndex((c) => c.id === cardId);
+    if (at < 0) throw new MoveError('cardNotInHand');
+    const card = hand.splice(at, 1)[0];
+    this.seen.push(card);
+    const team = teamOf(seat);
+    const ev = { seat, team, card, took: null, revealed: null, pishpirik: 0, removed: null };
+    const top = this.topCard;
+
+    if (top && (card.rank === top.rank || isJack(card))) {
+      // A single card taken with the same rank is a Pishpirik (10). A jack on a single jack is 20.
+      // A jack on a single other card is just a normal take.
+      if (this.middle.length === 1) {
+        if (isJack(card) && isJack(top)) ev.pishpirik = 20;
+        else if (card.rank === top.rank) ev.pishpirik = 10;
+      }
+      if (this.hidden > 0) { ev.revealed = this.middle.slice(0, this.hidden); this.seen.push(...ev.revealed); }
+      ev.took = this.middle.concat([card]);
+      this.piles[team].push(...ev.took);
+      this.middle = [];
+      this.hidden = 0;
+      this.lastTaker = seat;
+      if (ev.pishpirik) {
+        const other = 1 - team;
+        if (this.pishpiriks[other].length > 0) {
+          // The other team loses its most recent face-up Pishpirik; this team doesn't add one.
+          ev.removed = this.pishpiriks[other].pop();
+        } else {
+          this.pishpiriks[team].push({ card, value: ev.pishpirik });
+        }
+      }
+    } else {
+      this.middle.push(card);
+    }
+
+    this.current = (seat + 1) % PLAYERS;
+    if (this.hands.every((h) => h.length === 0)) {
+      if (this.dealNo === 1) { this.deal(); ev.newDeal = true; }
+      else this.finish(ev);
+    }
+    return ev;
+  }
+
+  finish(ev) {
+    // The cards still in the middle go to the team that took last.
+    if (this.middle.length) {
+      const team = this.lastTaker !== null ? teamOf(this.lastTaker) : teamOf(this.dealer);
+      ev.lastCards = { team, cards: this.middle.slice() };
+      this.piles[team].push(...this.middle);
+      this.middle = [];
+      this.hidden = 0;
+    }
+    const teams = [0, 1].map((t) => {
+      const cards = this.piles[t].length;
+      const cardPts = this.piles[t].reduce((s, c) => s + cardPoints(c), 0);
+      const most = cards > 26 ? 3 : 0;             // 26-26: nobody gets the 3 points
+      const pish = this.pishpiriks[t].reduce((s, p) => s + p.value, 0);
+      return { cards, cardPoints: cardPts, mostCards: most, pishpiriks: this.pishpiriks[t].length, pishPoints: pish, total: cardPts + most + pish };
+    });
+    this.result = { teams, scores: teams.map((x) => x.total) };
+    this.phase = 'finished';
+    ev.roundOver = true;
+  }
+
+  clone() {
+    const copy = Object.create(PishRound.prototype);
+    Object.assign(copy, JSON.parse(JSON.stringify(this)));
+    return copy;
+  }
+}
+
+// ============================================================
+// The game: rounds until a team reaches 151
+// ============================================================
+
+class PishMatch {
+  constructor() {
+    this.firstDealer = Math.floor(random() * PLAYERS);
+    this.totals = [0, 0];
+    this.roundsPlayed = 0;
+    this.winner = null;                        // 0 or 1 when the game is over
+    this.round = new PishRound(this.firstDealer);
+  }
+  get dealer() { return (this.firstDealer + this.roundsPlayed) % PLAYERS; }
+  get isFinished() { return this.winner !== null; }
+
+  /** Add the finished round's points. The first team to reach 151 wins; if both do, the higher total wins
+   *  (if they are equal, another round is played). */
+  addRound() {
+    if (!this.round.result || this.round.counted) return;
+    this.round.counted = true;
+    for (let t = 0; t < 2; t++) this.totals[t] += this.round.result.scores[t];
+    this.roundsPlayed += 1;
+    const [a, b] = this.totals;
+    if ((a >= TARGET || b >= TARGET) && a !== b) this.winner = a > b ? 0 : 1;
+  }
+  /** Deal the next round (call after addRound, when the game is not over). */
+  nextRound() {
+    if (this.isFinished) return;
+    if (!this.round.counted) this.addRound();
+    if (!this.isFinished) this.round = new PishRound(this.dealer);
+  }
+}
+
+// ============================================================
+// Computer player
+// ============================================================
+
+function remainingOfRank(round, rank, hand) {
+  const seen = round.seen.filter((c) => c.rank === rank).length + hand.filter((c) => c.rank === rank).length;
+  return 4 - seen;
+}
+
+/** Which card a computer player plays. */
+function botChoose(round, seat) {
+  const hand = round.hands[seat];
+  const top = round.topCard;
+  const value = (cards) => cards.reduce((s, c) => s + cardPoints(c), 0);
+  const pile = round.middle;
+  // 1. Take with the same rank (a Pishpirik if only one card lies there)
+  if (top) {
+    const same = hand.filter((c) => c.rank === top.rank && !isJack(c));
+    if (same.length) return same.sort((a, b) => cardPoints(a) - cardPoints(b))[0];
+    // 2. A jack: on a single jack (20 points), or when the middle is worth taking
+    const jacks = hand.filter(isJack);
+    if (jacks.length) {
+      if (pile.length === 1 && isJack(top)) return jacks[0];
+      if (value(pile) >= 2 || pile.length >= 4 || (round.hidden > 0)) return jacks[0];
+      if (hand.length === 1) return jacks[0];
+    }
+  }
+  // 3. Otherwise throw a card that is unlikely to give the other team a Pishpirik or points
+  const choices = hand.filter((c) => !isJack(c));
+  const pool = choices.length ? choices : hand;
+  let best = null, bestScore = Infinity;
+  for (const c of pool) {
+    let score = cardPoints(c) * 3;                                       // keep point cards
+    const left = remainingOfRank(round, c.rank, hand);                   // how many of that rank could still come
+    if (pile.length === 0) score += left * 4;                            // on an empty middle: risk of a Pishpirik
+    else score += left * 1.5 + value(pile);
+    if (best === null || score < bestScore) { best = c; bestScore = score; }
+  }
+  return best;
+}
+
+return { SUITS, JACK, TARGET, PLAYERS, setRandom, makeDeck, teamOf, isJack, cardPoints, MoveError, PishRound, PishMatch, botChoose };
+}));
+
+</script>
+<script>
 (function () {
 'use strict';
 
@@ -1226,7 +1548,7 @@ const STR = {
       '<li>Për të hapur, kombinimet e para duhet të kenë të paktën <b>51 pikë</b>. Letrat 2–9 vlejnë sa numri i tyre; 10, J, Q, K vlejnë 10. Asi vlen 1 në A-2-3 dhe 10 në Q-K-A ose në grup asash. Xhokeri vlen sa letra që zëvendëson.</li>' +
       '<li>Pasi hap, mund të <b>shesësh</b> letra: t\'i shtosh në çdo kombinim në tavolinë.</li>' +
       '<li>Xhokerin nga tavolina e merr duke vendosur letrën e vërtetë në vendin e tij (vetëm pasi ke hapur). Nga një grup si K♥ K♦ ★ të duhen të dy mbretërit që mungojnë.</li>' +
-      '<li><b>E shitur:</b> nëse nuk ke hapur, nuk mund të hedhësh një letër që shkon në një kombinim në tavolinë. Xhokerin nuk mund ta hedhësh, përveçse si letrën e fundit.</li></ul>' +
+      '<li><b>E shitur:</b> nëse nuk ke hapur, nuk mund të hedhësh një letër që shkon në një kombinim në tavolinë, as letrën që zëvendëson një xhoker në tavolinë. Xhokerin nuk mund ta hedhësh, përveçse si letrën e fundit.</li></ul>' +
       '<h3>Mbyllja</h3><ul>' +
       '<li>E mbyll lojën kur ke shtruar 14 letra dhe hedh letrën e 15-të: <b>−40</b> pikë (<b>−80</b> nëse letra e fundit është xhoker).</li>' +
       '<li><b>Hand:</b> pa hapur më parë, shtro të 14 letrat në kombinimet e tua njëherësh (51+ pikë) dhe mbyll: <b>−140</b> (<b>−200</b> me xhoker si letër të fundit). Letra e hapur poshtë pakos merret vetëm për të mbyllur me Hand.</li>' +
@@ -1243,7 +1565,7 @@ const STR = {
       noBottomCard: 'Nuk ka letër poshtë pakos.', bottomCardIsNotAHand: 'Letra poshtë pakos merret vetëm për të mbyllur me Hand.',
       noCardsLeft: 'Nuk ka më letra për të marrë.', badMeldIndex: 'Ky kombinim nuk ekziston.',
       cardCantBeSold: 'Kjo letër nuk shkon këtu.', cannotTakeJoker: 'Me këto letra nuk mund ta marrësh xhokerin.',
-      illegalDiscard: 'Këtë letër nuk mund ta hedhësh: është xhoker, ose është e shitur (shkon në një kombinim në tavolinë).',
+      illegalDiscard: 'Këtë letër nuk mund ta hedhësh: është xhoker, ose është e shitur (shkon në një kombinim në tavolinë ose zëvendëson një xhoker atje).',
       noGame: 'Nuk u gjet asnjë lojë me këtë kod.', started: 'Kjo lojë ka filluar tashmë.', full: 'Loja është plot (4 lojtarë).',
       noName: 'Shkruaj emrin tënd.', notHost: 'Këtë mund ta bëjë vetëm ai që krijoi lojën.', badToken: 'Nuk je më në këtë lojë.',
       notYourTurn: 'Nuk është radha jote.', notStarted: 'Loja nuk ka filluar ende.', needTwo: 'Duhen të paktën 2 lojtarë për të filluar.',
@@ -1340,7 +1662,7 @@ const STR = {
       '<li>To open, your first melds must be worth at least <b>51 points</b>. Cards 2–9 count their number; 10, J, Q, K count 10. An ace counts 1 in A-2-3 and 10 in Q-K-A or in a set of aces. A joker counts as the card it stands for.</li>' +
       '<li>After you open, you can <b>sell</b> cards: add them to any meld on the table.</li>' +
       '<li>You take a joker from the table by putting the real card in its place (only after you have opened). From a set like K♥ K♦ ★ you need both missing kings.</li>' +
-      '<li><b>E shitur (sold):</b> if you have not opened, you cannot throw a card that fits a meld on the table. You can never throw a joker, except as your last card.</li></ul>' +
+      '<li><b>E shitur (sold):</b> if you have not opened, you cannot throw a card that fits a meld on the table, nor the card a joker on the table stands for. You can never throw a joker, except as your last card.</li></ul>' +
       '<h3>Closing</h3><ul>' +
       '<li>You close the game when you have laid down 14 cards and throw your 15th: <b>−40</b> points (<b>−80</b> if the last card is a joker).</li>' +
       '<li><b>Hand:</b> without opening before, lay down all 14 cards in your own melds at once (51+ points) and close: <b>−140</b> (<b>−200</b> with a joker as the last card). The face-up card under the deck can only be taken to close with a Hand.</li>' +
@@ -1357,7 +1679,7 @@ const STR = {
       noBottomCard: 'There is no card under the deck.', bottomCardIsNotAHand: 'The card under the deck can only be taken to close with a Hand.',
       noCardsLeft: 'No cards left to draw.', badMeldIndex: "That meld doesn't exist.",
       cardCantBeSold: "That card doesn't fit there.", cannotTakeJoker: "You can't take that joker with these cards.",
-      illegalDiscard: "You can't throw this card: it is a joker, or it is \"sold\" (it fits a meld on the table).",
+      illegalDiscard: "You can't throw this card: it is a joker, or it is \"sold\" (it fits a meld on the table or could replace a joker there).",
       noGame: 'No game found with this code.', started: 'This game has already started.', full: 'The game is full (4 players).',
       noName: 'Type your name.', notHost: 'Only the person who created the game can do this.', badToken: "You're no longer in this game.",
       notYourTurn: "It's not your turn.", notStarted: "The game hasn't started yet.", needTwo: 'You need at least 2 players to start.',
@@ -1410,6 +1732,8 @@ const ui = {
   selected: new Set(), staged: [], openingWithDiscard: false,
   sortMode: 'suit', order: [], orderKey: null,
   lang: 'sq', showRules: false,
+  gameType: 'zhol',            // which game the menus are for: 'zhol' or 'pishpirik'
+  rulesTab: null, pSel: null, pLast: '', pRoundId: null, pRects: null,
   landing: {},                 // cards still in the air: 'card:<id>', 'ref:<id>' (in a meld) or 'discard'
   fresh: {},                   // meld index -> when it got new cards (it glows for a moment)
   message: '', lastAction: '', newCardId: null, scrollToNew: false,
@@ -1597,6 +1921,12 @@ const online = {
     const firstGameView = !!s.game && !(this.state && this.state.game);
     this.state = s;
     onChatFromServer(s.chat || [], s.you.id);
+    if (s.type === 'pishpirik') {
+      this.view = null;
+      if (!s.started) { ui.mode = 'online'; ui.screen = 'lobby'; ui.gameType = 'pishpirik'; render(); return; }
+      onPishState(s, firstGameView);
+      return;
+    }
     this.buildView();
     if (!s.started) { ui.mode = 'online'; ui.screen = 'lobby'; render(); return; }
     ui.mode = 'online'; ui.screen = 'game';
@@ -1826,6 +2156,7 @@ function fly(from, to, card, opts) {
 
 function landingElement(key) {
   if (key === 'discard') return document.querySelector('#discard .card');
+  if (key === 'pmiddle') return document.querySelector('#pmiddle .card.top');
   if (key.indexOf('ref:') === 0) return document.querySelector('.meld .card[data-ref="' + key.slice(4) + '"]');
   if (key.indexOf('card:') === 0) return document.querySelector('#hand .card[data-card="' + key.slice(5) + '"]');
   return null;
@@ -2044,7 +2375,7 @@ async function createGame() {
   saveLocal('zhol.name', name);
   ui.formError = ''; ui.busy = true; render();
   try {
-    const r = await online.api('/api/create', { name });
+    const r = await online.api('/api/create', { name, type: ui.gameType });
     ui.busy = false;
     ui.mode = 'online'; ui.screen = 'lobby'; ui.lobbyNote = '';
     online.connect({ code: r.code, token: r.token });
@@ -2081,6 +2412,7 @@ async function leaveLobby() {
 function goHome() {
   if (ui.mode === 'online') online.leaveLocal();
   solo.token++;
+  pishSolo.token++;
   ui.mode = null; ui.screen = 'home'; ui.showHelp = false; ui.chooser = null;
   render();
 }
@@ -2105,15 +2437,28 @@ function btn(label, action, color, disabled, extra) {
 }
 
 function homeHTML() {
-  return '<div class="screen home">' + langSwitchHTML() + '<div class="logo">Zhol</div><div class="tagline">' + t('tagline') + '</div>' +
+  return '<div class="screen home">' + langSwitchHTML() + '<div class="logo">Zhol</div><div class="tagline">' + t('homeTag') + '</div>' +
     '<div class="suits-row">♥' + TEXT_STYLE + ' ♠' + TEXT_STYLE + ' ♦' + TEXT_STYLE + ' ♣' + TEXT_STYLE + '</div>' +
-    btn(t('play'), 'menu', 'yellow big-btn') +
+    btn(t('playZhol'), 'menu', 'yellow big-btn', false, ' data-game="zhol"') +
+    '<p class="muted">' + t('tagline') + '</p>' +
+    btn(t('playPish'), 'menu', 'orange big-btn', false, ' data-game="pishpirik"') +
+    '<p class="muted">' + t('pishTag') + '</p>' +
     btn(t('rules'), 'rules', 'gray') +
     (ui.formError ? '<p class="warn">' + ui.formError + '</p>' : '') + '</div>';
 }
 
 function menuHTML() {
-  return '<div class="screen"><h1>' + t('howPlay') + '</h1>' +
+  if (ui.gameType === 'pishpirik') {
+    return '<div class="screen"><h1>Pishpirik</h1><p class="muted">' + t('howPlay') + '</p>' +
+      btn(t('createWithFriends'), 'toCreate', 'yellow big-btn') +
+      '<p class="muted">' + t('createNotePish') + '</p>' +
+      btn(t('joinWithCode'), 'toJoin', 'orange big-btn') +
+      '<p class="muted">' + t('joinNote') + '</p>' +
+      btn(t('vsComputer'), 'solo', 'green big-btn') +
+      '<p class="muted">' + t('vsComputerNotePish') + '</p>' +
+      btn(t('rules'), 'rules', 'gray', false, ' data-game="pishpirik"') + btn(t('back'), 'home', 'gray') + '</div>';
+  }
+  return '<div class="screen"><h1>Zhol</h1><p class="muted">' + t('howPlay') + '</p>' +
     btn(t('createWithFriends'), 'toCreate', 'yellow big-btn') +
     '<p class="muted">' + t('createNote') + '</p>' +
     btn(t('joinWithCode'), 'toJoin', 'orange big-btn') +
@@ -2140,6 +2485,7 @@ function joinHTML() {
 function lobbyHTML() {
   const s = online.state;
   if (!s) return '<div class="screen"><h1>' + t('connecting') + '</h1>' + btn(t('back'), 'leaveLobby', 'gray') + '</div>';
+  if (s.type === 'pishpirik') return pLobbyHTML(s);
   let html = '<div class="screen lobby"><div class="lobby-top"><h1>' + t('lobby') + '</h1>' + chatButtonHTML() + '</div><div class="code-box"><span>' + t('gameCode') + '</span><b>' + esc(s.code) + '</b></div>';
   if (s.you.isHost) html += btn(t('shareBtn'), 'share', 'orange big-btn') + '<p class="muted">' + t('shareNote') + '</p>';
   html += '<h2>' + t('players', s.players.length) + '</h2><ul class="player-list">';
@@ -2386,10 +2732,14 @@ function helpHTML() {
 }
 
 /** The full rules of Zhol, from the start window or from the game. */
+/** The rules of both games (a tab for each), from any screen. */
 function rulesHTML() {
   if (!ui.showRules) return '';
+  const tab = ui.rulesTab || ui.gameType || 'zhol';
   return '<div class="overlay rules-overlay"><div class="dialog rules"><h2>' + t('rules') + '</h2>' + langSwitchHTML() +
-    '<div class="rules-text">' + t('rulesHTML') + '</div>' + btn(t('close2'), 'closeRules', 'yellow') + '</div></div>';
+    '<div class="rules-tabs"><button class="lang' + (tab === 'zhol' ? ' on' : '') + '" data-action="rulesTab" data-game="zhol">Zhol</button>' +
+    '<button class="lang' + (tab === 'pishpirik' ? ' on' : '') + '" data-action="rulesTab" data-game="pishpirik">Pishpirik</button></div>' +
+    '<div class="rules-text">' + (tab === 'pishpirik' ? t('pRulesHTML') : t('rulesHTML')) + '</div>' + btn(t('close2'), 'closeRules', 'yellow') + '</div></div>';
 }
 
 function gameHTML() {
@@ -2415,6 +2765,7 @@ function render() {
     case 'join': html = joinHTML(); break;
     case 'lobby': html = lobbyHTML(); break;
     case 'game': html = gameHTML(); break;
+    case 'pgame': html = pgameHTML(); break;
     default: html = homeHTML();
   }
   app.className = ui.screen === 'game' ? 'in-game' : 'in-menu';
@@ -2431,6 +2782,7 @@ function render() {
     layoutHand(h2);
   }
   ui.lastRects = snapshot();
+  ui.pRects = ui.screen === 'pgame' ? pSnapshot() : null;
   if (presence.vid && pageNow() !== presence.page) ping();
 }
 
@@ -2540,10 +2892,16 @@ app.addEventListener('click', (e) => {
   switch (el.getAttribute('data-action')) {
     // start window
     case 'home': ui.screen = 'home'; ui.formError = ''; render(); break;
-    case 'menu': ui.screen = 'menu'; ui.formError = ''; render(); break;
+    case 'menu': if (el.getAttribute('data-game')) ui.gameType = el.getAttribute('data-game'); ui.screen = 'menu'; ui.formError = ''; render(); break;
     case 'toCreate': ui.screen = 'create'; ui.formError = ''; render(); break;
     case 'toJoin': ui.screen = 'join'; ui.formError = ''; render(); break;
-    case 'solo': startSolo(); break;
+    case 'solo': if (ui.gameType === 'pishpirik') startPishSolo(); else startSolo(); break;
+    case 'pcard': pTapCard(parseInt(el.getAttribute('data-pcard'), 10)); break;
+    case 'pplay': pPlay(); break;
+    case 'pnext': PA().nextRound(); break;
+    case 'pteam': pSwitchTeam(parseInt(el.getAttribute('data-team'), 10)); break;
+    case 'sound': sound.toggle(); render(); break;
+    case 'rulesTab': ui.rulesTab = el.getAttribute('data-game'); render(); break;
     case 'create': createGame(); break;
     case 'join': joinGame(); break;
     case 'share': shareLink(); break;
@@ -2576,7 +2934,7 @@ app.addEventListener('click', (e) => {
     case 'takeover': online.takeover(index, el.getAttribute('data-on') === '1'); break;
     case 'chat': openChat(); break;
     case 'lang': setLanguage(el.getAttribute('data-lang')); break;
-    case 'rules': ui.showRules = true; render(); break;
+    case 'rules': ui.rulesTab = el.getAttribute('data-game') || (ui.screen === 'pgame' ? 'pishpirik' : ui.screen === 'game' ? 'zhol' : ui.gameType); ui.showRules = true; render(); break;
     case 'closeRules': ui.showRules = false; render(); break;
     case 'help': ui.showHelp = true; render(); break;
     case 'closeHelp': ui.showHelp = false; render(); break;
@@ -2714,12 +3072,519 @@ async function sendChat(text) {
 }
 
 // ============================================================
+// PISHPIRIK (the second game)
+// ============================================================
+
+const PSOLO_NAMES = ['Ti', 'Besnik', 'Drita', 'Arben'];      // against the computer: Drita (across) is your partner
+const PCARD_MIDDLE = 52;
+
+Object.assign(STR.sq, {
+  homeTag: 'Lojëra shqiptare me letra', playZhol: 'LUAJ ZHOL', playPish: 'LUAJ PISHPIRIK',
+  pishTag: 'Me ekipe: dy kundër dy',
+  createNotePish: 'Ti merr një kod dhe ua dërgon shokëve. 2 deri në 4 veta; kompjuteri plotëson vendet bosh.',
+  vsComputerNotePish: 'Ti dhe shoku yt (kompjuteri) kundër dy lojtarëve të kompjuterit.',
+  team: (n) => 'Ekipi ' + n, switchTeam: 'Kalo në ekipin tjetër', emptySeatPish: 'Vend bosh: luan kompjuteri',
+  pishLobbyNote: 'Shokët e ekipit ulen përballë njëri-tjetrit. Vendet bosh i luan kompjuteri.',
+  teamFull: 'Ky ekip është plot (2 lojtarë).',
+  we: 'Ne', they: 'Ata', pRound: (n) => 'Raundi ' + n, pTo: 'deri në 151',
+  pYourTurn: 'Radha jote: luaj një letër.', pPlaying: (n, comp) => n + (comp ? ' (kompjuteri)' : '') + ' po luan...',
+  pRoundOverHint: 'Raundi mbaroi.', pTapAgain: 'Prek letrën sërish ose shtyp Luaj.',
+  playCard: 'Luaj letrën', pDeck: 'Pakoja', forDealer: (n) => 'Për ndarësin (' + n + ')', pCards: (n) => n + ' letra',
+  pPlay: (you, n, c) => (you ? 'Ti hodhe ' : n + ' hodhi ') + c + '.',
+  pTake: (you, n, c, k) => (you ? 'Ti more ' : n + ' mori ') + k + ' letra me ' + c + '.',
+  pPishMsg: (v) => ' PISHPIRIK +' + v + '!',
+  pRemovedMsg: (side) => ' Pishpirik: ' + side + ' humbën një Pishpirik.',
+  newDealMsg: ' Ndarja e dytë: 6 letra të reja.',
+  lastCardsMsg: (side) => ' Letrat e mbetura i morën ' + side + '.',
+  pishBig: 'PISHPIRIK!', pishRemovedBig: 'U HOQ NJË PISHPIRIK',
+  pRoundOver: (n) => 'Raundi ' + n + ' mbaroi', pGameOver: 'Loja mbaroi',
+  weWon: 'Fituat! 🎉', theyWon: 'Fituan ata.',
+  colCards: 'Letra', colCardPts: 'Pikë', colMost: '+3', colPish: 'Pishpirik', colRoundP: 'Raundi', colTotalP: 'Totali',
+  soundOn: 'Zëri: i ndezur', soundOff: 'Zëri: i fikur',
+  pHelpItems: [
+    'Ti je poshtë. Shoku yt i ekipit ulet përballë teje (lart). Loja shkon djathtas.',
+    'Prek një letër për ta zgjedhur, pastaj prek sërish ose shtyp <b>Luaj letrën</b>.',
+    'Letrat që ka marrë çdo ekip dhe Pishpirikët e tyre shihen poshtë tavolinës.',
+    'Letrat e hapura “Për ndarësin” i merr ndarësi në ndarjen e dytë.',
+    'Butoni 🔊 ndez ose fik zërin.',
+  ],
+  pRulesHTML:
+    '<h3>Bazat</h3><ul>' +
+    '<li>Luhet nga 4 lojtarë në dy ekipe; shokët e ekipit ulen përballë. Një pako me 52 letra, pa xhokerë. Loja shkon djathtas.</li>' +
+    '<li>Lojtari në të majtë të ndarësit e pret pakon: 3 letrat e fundit vendosen në mes me fytyrë poshtë, dhe një me fytyrë lart sipër tyre. Nëse ajo është J, i takon ndarësit dhe kthehet tjetra, derisa del një që s\'është J.</li>' +
+    '<li>Pastaj kthehet gjithmonë edhe një letër me fytyrë lart për ndarësin. Nëse është J, edhe tjetra, derisa del një që s\'është J. Këto letra ndarësi i merr në ndarjen e dytë.</li>' +
+    '<li>Ndarësi u jep 3 + 3 letra secilit, duke filluar nga ai në të djathtë. Kur mbarojnë, edhe 6 të tjera. Pas tyre mbaron raundi.</li></ul>' +
+    '<h3>Si merren letrat</h3><ul>' +
+    '<li>Hidh një letër në mes. Nëse ka të njëjtin numër si letra e sipërme, i merr të gjitha letrat e mesit.</li>' +
+    '<li>J i merr të gjitha letrat e mesit, cilado qofshin.</li>' +
+    '<li><b>Pishpirik:</b> kur në mes ka vetëm një letër dhe e merr me të njëjtin numër: <b>+10</b>. J mbi një J të vetëm: <b>+20</b>. J mbi një letër tjetër të vetme nuk është Pishpirik.</li>' +
+    '<li>Kur ekipi tjetër bën Pishpirik dhe ju keni Pishpirik të hapur, ju hiqet njëri (kthehet me fytyrë poshtë në letrat tuaja) dhe ata s\'shtojnë asnjë.</li>' +
+    '<li>Në fund, letrat që mbeten në mes i merr ekipi që mori i fundit.</li></ul>' +
+    '<h3>Pikët</h3><ul>' +
+    '<li>Çdo Q, J, K dhe as: 1 pikë. Çdo 10: 1 pikë, por 10♦: 2 pikë. 2♣: 1 pikë.</li>' +
+    '<li>Ekipi me më shumë letra (27 e lart): <b>+3</b>. Me 26–26 askush.</li>' +
+    '<li>Gjithsej 25 pikë në raund, plus Pishpirikët.</li>' +
+    '<li>Fiton ekipi që arrin i pari <b>151</b>. Nëse të dy e kalojnë në të njëjtin raund, fiton ai me më shumë pikë.</li></ul>',
+});
+Object.assign(STR.en, {
+  homeTag: 'Albanian card games', playZhol: 'PLAY ZHOL', playPish: 'PLAY PISHPIRIK',
+  pishTag: 'In teams: two against two',
+  createNotePish: 'You get a code and send it to your friends. 2 to 4 people; the computer fills empty seats.',
+  vsComputerNotePish: 'You and your partner (the computer) against two computer players.',
+  team: (n) => 'Team ' + n, switchTeam: 'Switch to the other team', emptySeatPish: 'Empty seat: the computer plays',
+  pishLobbyNote: 'Partners sit across from each other. The computer plays empty seats.',
+  teamFull: 'This team is full (2 players).',
+  we: 'We', they: 'They', pRound: (n) => 'Round ' + n, pTo: 'to 151',
+  pYourTurn: 'Your turn: play a card.', pPlaying: (n, comp) => n + (comp ? ' (computer)' : '') + ' is playing...',
+  pRoundOverHint: 'The round is over.', pTapAgain: 'Tap the card again or press Play.',
+  playCard: 'Play card', pDeck: 'Deck', forDealer: (n) => 'For the dealer (' + n + ')', pCards: (n) => n + ' cards',
+  pPlay: (you, n, c) => (you ? 'You played ' : n + ' played ') + c + '.',
+  pTake: (you, n, c, k) => (you ? 'You took ' : n + ' took ') + k + ' cards with ' + c + '.',
+  pPishMsg: (v) => ' PISHPIRIK +' + v + '!',
+  pRemovedMsg: (side) => ' Pishpirik: ' + side + ' lost a Pishpirik.',
+  newDealMsg: ' Second deal: 6 new cards.',
+  lastCardsMsg: (side) => ' ' + side + ' got the cards left in the middle.',
+  pishBig: 'PISHPIRIK!', pishRemovedBig: 'A PISHPIRIK IS REMOVED',
+  pRoundOver: (n) => 'Round ' + n + ' is over', pGameOver: 'Game over',
+  weWon: 'You won! 🎉', theyWon: 'They won.',
+  colCards: 'Cards', colCardPts: 'Points', colMost: '+3', colPish: 'Pishpirik', colRoundP: 'Round', colTotalP: 'Total',
+  soundOn: 'Sound: on', soundOff: 'Sound: off',
+  pHelpItems: [
+    'You sit at the bottom. Your partner sits across from you (at the top). Play goes to the right.',
+    'Tap a card to pick it, then tap it again or press <b>Play card</b>.',
+    'The cards each team has taken, and their Pishpiriks, are shown under the table.',
+    'The face-up cards “For the dealer” go to the dealer in the second deal.',
+    'The 🔊 button turns the sound on or off.',
+  ],
+  pRulesHTML:
+    '<h3>The basics</h3><ul>' +
+    '<li>4 players in two teams; partners sit across from each other. One deck of 52 cards, no jokers. Play goes to the right.</li>' +
+    '<li>The player to the left of the dealer cuts: the 3 bottom cards go face down in the middle, and one face up on top of them. If that card is a jack, it belongs to the dealer and the next one is turned, until a card that is not a jack shows.</li>' +
+    '<li>Then one more card is always turned face up for the dealer. If it is a jack, the next one too, until a card that is not a jack shows. The dealer gets these cards in the second deal.</li>' +
+    '<li>The dealer gives 3 + 3 cards to everyone, starting with the player on his right. When they are played, 6 more each. After those the round is over.</li></ul>' +
+    '<h3>Taking cards</h3><ul>' +
+    '<li>Play a card to the middle. If it has the same rank as the top card, you take all the cards in the middle.</li>' +
+    '<li>A jack takes all the cards in the middle, whatever they are.</li>' +
+    '<li><b>Pishpirik:</b> when only one card lies in the middle and you take it with the same rank: <b>+10</b>. A jack on a single jack: <b>+20</b>. A jack on a single other card is not a Pishpirik.</li>' +
+    '<li>When the other team makes a Pishpirik while you have a face-up Pishpirik, one of yours is removed (it goes face down into your cards) and they add none.</li>' +
+    '<li>At the end, the cards left in the middle go to the team that took last.</li></ul>' +
+    '<h3>Points</h3><ul>' +
+    '<li>Each Q, J, K and ace: 1 point. Each 10: 1 point, but the 10♦: 2 points. The 2♣: 1 point.</li>' +
+    '<li>The team with the most cards (27 or more): <b>+3</b>. At 26–26 nobody.</li>' +
+    '<li>25 points in a round, plus the Pishpiriks.</li>' +
+    '<li>The first team to reach <b>151</b> wins. If both pass it in the same round, the higher score wins.</li></ul>',
+});
+STR.sq.err.teamFull = STR.sq.teamFull;
+STR.en.err.teamFull = STR.en.teamFull;
+
+// ---------- sound (made in the browser, no files) ----------
+
+const sound = {
+  ctx: null, on: true,
+  init() { try { if (localStorage.getItem('zhol.sound') === '0') this.on = false; } catch (e) { /* ignore */ } },
+  unlock() {
+    try {
+      if (!this.ctx) { const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return; this.ctx = new AC(); }
+      if (this.ctx.state === 'suspended') this.ctx.resume();
+    } catch (e) { /* no sound */ }
+  },
+  toggle() { this.on = !this.on; saveLocal('zhol.sound', this.on ? '1' : '0'); if (this.on) this.unlock(); },
+  tone(freq, start, dur, type, vol) {
+    const c = this.ctx, now = c.currentTime;
+    const o = c.createOscillator(), g = c.createGain();
+    o.type = type || 'sine';
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, now + start);
+    g.gain.exponentialRampToValueAtTime(vol || 0.15, now + start + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, now + start + dur);
+    o.connect(g); g.connect(c.destination);
+    o.start(now + start); o.stop(now + start + dur + 0.05);
+  },
+  play(kind) {
+    if (!this.on || !this.ctx) return;
+    try {
+      if (kind === 'card') this.tone(520, 0, 0.07, 'triangle', 0.07);
+      else if (kind === 'take') { this.tone(440, 0, 0.1, 'triangle', 0.1); this.tone(660, 0.08, 0.14, 'triangle', 0.1); }
+      else if (kind === 'pish') { [523, 659, 784, 1047].forEach((f, i) => this.tone(f, i * 0.09, 0.35, 'triangle', 0.16)); this.tone(1568, 0.38, 0.55, 'sine', 0.09); }
+      else if (kind === 'jj') { [523, 659, 784, 1047, 1319, 1568].forEach((f, i) => this.tone(f, i * 0.08, 0.42, 'triangle', 0.16)); this.tone(2093, 0.5, 0.7, 'sine', 0.08); }
+      else if (kind === 'removed') { [784, 659, 523, 392].forEach((f, i) => this.tone(f, i * 0.11, 0.3, 'sawtooth', 0.06)); }
+    } catch (e) { /* ignore */ }
+  },
+};
+sound.init();
+window.addEventListener('pointerdown', () => sound.unlock(), true);
+window.addEventListener('keydown', () => sound.unlock(), true);
+
+// ---------- playing against the computer ----------
+
+function pishPause(ev) {
+  if (BOT_DELAY === 0) return 0;
+  let p = BOT_DELAY + 250;
+  if (ev && ev.took) p += 450;
+  if (ev && ev.pishpirik) p += 1600;
+  if (ev && ev.newDeal) p += 1000;
+  return p;
+}
+
+const pishSolo = {
+  match: null, token: 0, seq: 0, lastEvent: null,
+  start() { this.match = new Pish.PishMatch(); this.token++; this.seq = 0; this.lastEvent = null; },
+  isHost() { return true; },
+  hostName() { return t('you'); },
+  view() {
+    const m = this.match, r = m.round;
+    return {
+      type: 'pishpirik', mySeat: 0,
+      seats: [0, 1, 2, 3].map((s) => ({ name: s === 0 ? t('you') : PSOLO_NAMES[s], isBot: s !== 0, botPlaying: false, connected: true, handCount: r.hands[s].length, team: s % 2 })),
+      phase: r.phase, current: r.current, dealer: r.dealer, cutter: r.cutter, dealNo: r.dealNo,
+      myHand: r.hands[0], middleTop: r.topCard, middleCount: r.middle.length, hidden: r.hidden,
+      dealerCards: r.dealerCards, stockCount: r.stock.length,
+      piles: [0, 1].map((tm) => ({ count: r.piles[tm].length, pishpiriks: r.pishpiriks[tm] })),
+      result: r.result, totals: m.totals, roundsPlayed: m.roundsPlayed, winner: m.winner, roundId: r.id, event: this.lastEvent,
+    };
+  },
+  after(ev) {
+    if (ev.roundOver) this.match.addRound();
+    this.lastEvent = Object.assign({ seq: ++this.seq, type: 'pish' }, ev);
+    onPishChange(this.lastEvent);
+  },
+  play(cardId) {
+    let ev;
+    try { ev = this.match.round.play(0, cardId); } catch (e) { if (e instanceof Pish.MoveError) return e.code; throw e; }
+    this.after(ev);
+    this.scheduleBots();
+    return true;
+  },
+  scheduleBots() {
+    const token = ++this.token;
+    const step = () => {
+      if (token !== this.token || ui.mode !== 'psolo') return;
+      const r = this.match.round;
+      if (r.phase !== 'play' || r.current === 0) { render(); return; }
+      const ev = r.play(r.current, Pish.botChoose(r, r.current).id);
+      this.after(ev);
+      setTimeout(step, pishPause(ev));
+    };
+    const r = this.match.round;
+    if (r.phase === 'play' && r.current !== 0) setTimeout(step, pishPause(this.lastEvent));
+  },
+  nextRound() {
+    if (this.match.isFinished) this.start(); else this.match.nextRound();
+    this.lastEvent = null;
+    ui.pSel = null; ui.pLast = '';
+    onPishChange(null);
+    this.scheduleBots();
+  },
+};
+
+const pishOnline = {
+  isHost() { return online.isHost(); },
+  hostName() { return online.hostName(); },
+  view() { return online.state && online.state.game; },
+  play(cardId) {
+    return online.api('/api/move', { code: online.session.code, token: online.session.token, move: { type: 'play', card: cardId } })
+      .then(() => true, (e) => e.code || 'generic');
+  },
+  nextRound() { online.nextRound(); },
+};
+const PA = () => (ui.mode === 'psolo' ? pishSolo : pishOnline);
+const pv = () => PA().view();
+
+function startPishSolo() {
+  online.disconnect();
+  ui.mode = 'psolo'; ui.screen = 'pgame'; ui.gameType = 'pishpirik';
+  ui.pSel = null; ui.pLast = ''; ui.message = '';
+  pishSolo.start();
+  onPishChange(null);
+  pishSolo.scheduleBots();
+}
+
+// ---------- what happened (message, sound, big announcement, animation) ----------
+
+function pTeamWord(team) { return team === pv().seats[pv().mySeat].team ? t('we') : t('they'); }
+
+function describePish(ev) {
+  const v = pv();
+  const you = ev.seat === v.mySeat;
+  const name = esc(v.seats[ev.seat].name);
+  let s = ev.took ? t('pTake', you, name, cardText(ev.card), ev.took.length) : t('pPlay', you, name, cardText(ev.card));
+  if (ev.pishpirik && ev.removed) s += t('pRemovedMsg', pTeamWord(1 - ev.team));
+  else if (ev.pishpirik) s += t('pPishMsg', ev.pishpirik);
+  if (ev.lastCards) s += t('lastCardsMsg', pTeamWord(ev.lastCards.team));
+  if (ev.newDeal) s += t('newDealMsg');
+  return s;
+}
+
+function showBig(ev) {
+  let el = document.getElementById('pish-big');
+  if (!el) { el = document.createElement('div'); el.id = 'pish-big'; document.body.appendChild(el); }
+  const v = pv();
+  const who = esc(v.seats[ev.seat].name);
+  el.className = '';
+  if (ev.removed) el.innerHTML = '<b>' + t('pishBig') + '</b><span>' + who + ' · ' + t('pishRemovedBig') + ' (−' + ev.removed.value + ')</span>';
+  else el.innerHTML = '<b>' + t('pishBig') + '</b><span>' + who + ' · +' + ev.pishpirik + '</span>';
+  void el.offsetWidth;                                   // restart the animation
+  el.className = 'show' + (ev.removed ? ' removed' : '') + (ev.pishpirik === 20 ? ' double' : '');
+}
+
+function onPishChange(ev) {
+  const before = ui.pRects;
+  if (ev) {
+    ui.pLast = describePish(ev);
+    if (ev.pishpirik) { showBig(ev); sound.play(ev.removed ? 'removed' : ev.pishpirik === 20 ? 'jj' : 'pish'); }
+    else if (ev.took) sound.play('take');
+    else sound.play('card');
+    if (ev.seat === pv().mySeat) ui.pSel = null;
+  }
+  render();
+  if (ev) animatePish(ev, before);
+}
+
+function pSnapshot() {
+  if (ui.screen !== 'pgame' || !pv()) return null;
+  const cards = {};
+  document.querySelectorAll('#phand .card[data-pcard]').forEach((el) => { cards[el.getAttribute('data-pcard')] = el.getBoundingClientRect(); });
+  const v = pv();
+  return {
+    middle: rectOf('pmiddle'), we: rectOf('ppile-we'), they: rectOf('ppile-they'), cards,
+    seats: v.seats.map((_, s) => rectOf(s === v.mySeat ? 'phand' : 'pseat-' + s)),
+  };
+}
+
+function animatePish(ev, before) {
+  if (!before) return;
+  const after = pSnapshot();
+  if (!after) return;
+  const v = pv();
+  const mine = ev.seat === v.mySeat;
+  const from = mine && before.cards[ev.card.id] ? before.cards[ev.card.id] : before.seats[ev.seat];
+  const fromW = mine ? CARD_HAND : 30;
+  const middle = before.middle || after.middle;
+  if (ev.took) {
+    fly(from, middle, ev.card, { fromWidth: fromW, toWidth: PCARD_MIDDLE, duration: 420 });
+    const pile = ev.team === v.seats[v.mySeat].team ? after.we : after.they;
+    const shown = ev.took.slice(-6);
+    shown.forEach((c, i) => fly(middle, pile, c, { fromWidth: PCARD_MIDDLE, toWidth: 22, delay: 420 + i * 70, duration: 520 }));
+  } else {
+    fly(from, after.middle, ev.card, { fromWidth: fromW, toWidth: PCARD_MIDDLE, landingKey: 'pmiddle' });
+  }
+}
+
+// ---------- your moves ----------
+
+function pTapCard(id) {
+  const v = pv();
+  const myTurn = v.phase === 'play' && v.current === v.mySeat;
+  if (ui.pSel === id && myTurn) { pPlay(); return; }
+  ui.pSel = id;
+  ui.message = '';
+  render();
+}
+
+function pPlay() {
+  const v = pv();
+  if (ui.busy || ui.pSel === null || ui.pSel === undefined) return;
+  if (!(v.phase === 'play' && v.current === v.mySeat)) return;
+  const id = ui.pSel;
+  const res = PA().play(id);
+  const done = (r) => {
+    ui.busy = false;
+    if (r !== true) { ui.message = errText(r, 'generic'); render(); return; }
+    ui.pSel = null; ui.message = '';
+    render();
+  };
+  if (res && typeof res.then === 'function') { ui.busy = true; res.then(done); } else done(res);
+}
+
+// ---------- drawing the Pishpirik screens ----------
+
+function pScoreHTML(v) {
+  const my = v.seats[v.mySeat].team;
+  return '<span class="pscore"><b class="we">' + t('we') + ' ' + v.totals[my] + '</b><span> · </span><b class="they">' + t('they') + ' ' + v.totals[1 - my] + '</b><small> / 151</small></span>';
+}
+
+function pHeaderHTML(v) {
+  return '<div class="header"><b class="title">Pishpirik</b>' + pScoreHTML(v) +
+    (ui.mode === 'online' ? chatButtonHTML() : '') +
+    '<button class="help-btn sound-btn" data-action="sound" aria-label="' + (sound.on ? t('soundOn') : t('soundOff')) + '">' + (sound.on ? '🔊' : '🔇') + '</button>' +
+    '<button class="help-btn" data-action="help" aria-label="?">?</button></div>';
+}
+
+function pPlateHTML(v, seat) {
+  const s = v.seats[seat];
+  const my = v.seats[v.mySeat].team;
+  const turn = v.phase === 'play' && v.current === seat;
+  let badges = '<span class="badge ' + (s.team === my ? 'team-we' : 'team-they') + '">' + (s.team === my ? t('we') : t('they')) + '</span>';
+  if (v.dealer === seat) badges += '<span class="badge">' + t('dealer') + '</span>';
+  if (ui.mode === 'online' && seat !== v.mySeat) {
+    if (s.isBot) badges += '<span class="badge">' + t('computer') + '</span>';
+    else if (s.botPlaying) badges += '<span class="badge off">' + t('computerPlays') + '</span>';
+    else if (!s.connected) badges += '<span class="badge off">' + t('offlineBadge') + '</span>';
+  }
+  let fan = '';
+  if (seat !== v.mySeat) {
+    fan = '<div class="fan">';
+    for (let k = 0; k < s.handCount; k++) fan += '<div class="mini-back"></div>';
+    fan += '<span class="fan-count">' + s.handCount + '</span></div>';
+  }
+  let takeover = '';
+  if (ui.mode === 'online' && online.isHost() && seat !== v.mySeat && !s.isBot && (!s.connected || s.botPlaying)) {
+    takeover = s.botPlaying ? '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="0">' + t('letPlayerPlay') + '</button>'
+                            : '<button class="mini" data-action="takeover" data-index="' + seat + '" data-on="1">' + t('letComputerPlay') + '</button>';
+  }
+  return '<div class="plate' + (turn ? ' turn' : '') + '" id="pseat-' + seat + '"><div class="plate-name"><b>' + esc(s.name) + '</b>' + badges + '</div>' + fan + takeover + '</div>';
+}
+
+function pCenterHTML(v) {
+  let mid = '<div class="pmid" id="pmiddle">';
+  const under = Math.min(v.middleCount - 1, 3);
+  for (let k = 0; k < under; k++) mid += '<div class="pmid-under" style="--k:' + k + '"></div>';
+  mid += v.middleTop ? cardHTML(v.middleTop, PCARD_MIDDLE, { landing: !!ui.landing.pmiddle }).replace('class="card ', 'class="card top ') : emptySlotHTML(PCARD_MIDDLE);
+  if (v.middleCount > 1) mid += '<span class="pcount">' + v.middleCount + '</span>';
+  mid += '</div>';
+  let html = '<div class="center pcenter">' + mid + '<div class="pinfo">' + t('pDeck') + ': ' + v.stockCount + ' · ' + t('pRound', v.roundsPlayed + (v.phase === 'finished' ? 0 : 1)) + '</div>';
+  if (v.dealerCards && v.dealerCards.length) {
+    html += '<div class="pdealer" id="pdealer"><span>' + t('forDealer', esc(v.seats[v.dealer].name)) + '</span><div class="pdealer-cards">' +
+      v.dealerCards.map((c) => cardHTML(c, 26)).join('') + '</div></div>';
+  }
+  return html + '</div>';
+}
+
+function pTableHTML(v) {
+  const zones = v.seats.map((_, seat) => {
+    const area = AREAS[4][(seat - v.mySeat + 4) % 4];
+    return '<div class="zone zone-' + area + '">' + pPlateHTML(v, seat) + '</div>';
+  }).join('');
+  return '<div class="table seats-4 ptable" id="table">' + zones + pCenterHTML(v) + '</div>';
+}
+
+function pPilesHTML(v) {
+  const my = v.seats[v.mySeat].team;
+  const pile = (team, cls, label) => {
+    const p = v.piles[team];
+    const pish = p.pishpiriks.map((x) => '<span class="pish-card">' + cardHTML(x.card, 24) + '<i>+' + x.value + '</i></span>').join('');
+    return '<div class="ppile ' + cls + '" id="ppile-' + cls + '"><div class="ppile-head"><b>' + label + '</b><span>' + t('pCards', p.count) + '</span></div>' +
+      (pish ? '<div class="pish-row">' + pish + '</div>' : '') + '</div>';
+  };
+  return '<div class="ppiles">' + pile(my, 'we', t('we')) + pile(1 - my, 'they', t('they')) + '</div>';
+}
+
+function pHint(v) {
+  if (v.phase === 'finished') return t('pRoundOverHint');
+  if (v.current === v.mySeat) return ui.pSel !== null && ui.pSel !== undefined ? t('pTapAgain') : t('pYourTurn');
+  const s = v.seats[v.current];
+  return t('pPlaying', esc(s.name), s.isBot || s.botPlaying);
+}
+
+function pStatusHTML(v) {
+  let html = '<div class="status"><b>' + pHint(v) + '</b>';
+  if (ui.message) html += '<b class="warn">' + ui.message + '</b>';
+  else if (ui.pLast) html += '<span class="muted">' + ui.pLast + '</span>';
+  if (ui.mode === 'online' && !online.connected) html += '<b class="warn">' + t('reconnecting') + '</b>';
+  return html + '</div>';
+}
+
+function pActionsHTML(v) {
+  if (v.phase !== 'play' || v.current !== v.mySeat) return '';
+  const has = ui.pSel !== null && ui.pSel !== undefined && v.myHand.some((c) => c.id === ui.pSel);
+  return '<div class="actions">' + btn(t('playCard'), 'pplay', 'yellow', !has || ui.busy) + '</div>';
+}
+
+function pHandHTML(v) {
+  let html = '<div class="hand-box"><div class="hand-head"><span>' + t('yourCards', v.myHand.length) + '</span></div><div class="hand phand" id="phand">';
+  v.myHand.forEach((c) => {
+    html += cardHTML(c, CARD_HAND, { selected: ui.pSel === c.id }).replace('<div class="card ', '<div data-action="pcard" data-pcard="' + c.id + '" class="card ');
+  });
+  return html + '</div></div>';
+}
+
+function pResultHTML(v) {
+  if (v.phase !== 'finished' || !v.result) return '';
+  const my = v.seats[v.mySeat].team;
+  const over = v.winner !== null && v.winner !== undefined;
+  let html = '<div class="overlay"><div class="dialog"><h2>' + (over ? t('pGameOver') : t('pRoundOver', v.roundsPlayed)) + '</h2>';
+  if (over) html += '<p class="big">' + (v.winner === my ? t('weWon') : t('theyWon')) + '</p>';
+  html += '<table class="ptable-res"><tr><th></th><th>' + t('colCards') + '</th><th>' + t('colCardPts') + '</th><th>' + t('colMost') + '</th><th>' + t('colPish') + '</th><th>' + t('colRoundP') + '</th><th>' + t('colTotalP') + '</th></tr>';
+  [my, 1 - my].forEach((tm) => {
+    const r = v.result.teams[tm];
+    html += '<tr><td><b>' + (tm === my ? t('we') : t('they')) + '</b></td><td>' + r.cards + '</td><td>' + r.cardPoints + '</td><td>' + r.mostCards + '</td><td>' + r.pishPoints + '</td><td><b>' + r.total + '</b></td><td><b>' + v.totals[tm] + '</b></td></tr>';
+  });
+  html += '</table><p class="muted">' + t('pTo') + '</p>';
+  if (PA().isHost()) html += btn(over ? t('newGame') : t('nextRound'), 'pnext', 'yellow');
+  else html += '<p class="waiting">' + t('waitHostNext', esc(PA().hostName())) + '</p>';
+  if (over) html += '<div style="height:8px"></div>' + btn(t('toStart'), 'goHome', 'gray');
+  return html + '</div></div>';
+}
+
+function pHelpHTML() {
+  if (!ui.showHelp) return '';
+  return '<div class="overlay"><div class="dialog"><h2>' + t('helpTitle') + '</h2>' + langSwitchHTML() + '<ul class="help">' +
+    t('pHelpItems').map((item) => '<li>' + item + '</li>').join('') + '</ul>' +
+    btn(t('rules'), 'rules', 'orange', false, ' data-game="pishpirik"') + '<div style="height:10px"></div>' +
+    btn(t('close2'), 'closeHelp', 'yellow') + '<div style="height:10px"></div>' + btn(t('leaveGame'), 'goHome', 'gray') + '</div></div>';
+}
+
+function pgameHTML() {
+  const v = pv();
+  if (!v) return '<div class="screen"><h1>' + t('connecting') + '</h1></div>';
+  return pHeaderHTML(v) + pTableHTML(v) + pPilesHTML(v) + pStatusHTML(v) + pActionsHTML(v) + pHandHTML(v) + pResultHTML(v) + pHelpHTML();
+}
+
+/** The waiting room for a Pishpirik game: two teams. */
+function pLobbyHTML(s) {
+  let html = '<div class="screen lobby"><div class="lobby-top"><h1>' + t('lobby') + '</h1>' + chatButtonHTML() + '</div>' +
+    '<div class="code-box"><span>Pishpirik · ' + t('gameCode') + '</span><b>' + esc(s.code) + '</b></div>';
+  if (s.you.isHost) html += btn(t('shareBtn'), 'share', 'orange big-btn') + '<p class="muted">' + t('shareNote') + '</p>';
+  html += '<h2>' + t('players', s.players.length) + '</h2><div class="teams">';
+  for (let tm = 0; tm < 2; tm++) {
+    const inTeam = s.players.filter((p) => p.team === tm);
+    html += '<div class="team-box' + (s.you.team === tm ? ' mine' : '') + '"><h3>' + t('team', tm + 1) + '</h3><ul class="player-list">';
+    inTeam.forEach((p) => {
+      html += '<li>' + (p.isHost ? '👑 ' : '') + '<b>' + esc(p.name) + '</b>' + (p.id === s.you.id ? ' <span class="badge">' + t('youBadge') + '</span>' : '') +
+        (p.connected ? '' : ' <span class="badge off">' + t('offline') + '</span>') + '</li>';
+    });
+    for (let k = inTeam.length; k < 2; k++) html += '<li class="muted">' + t('emptySeatPish') + '</li>';
+    html += '</ul>';
+    if (s.you.team !== tm && inTeam.length < 2) html += btn(t('switchTeam'), 'pteam', 'gray', false, ' data-team="' + tm + '"');
+    html += '</div>';
+  }
+  html += '</div><p class="muted">' + t('pishLobbyNote') + '</p>';
+  if (ui.lobbyNote) html += '<p class="warn">' + esc(ui.lobbyNote) + '</p>';
+  if (s.you.isHost) {
+    html += btn(t('startWith', s.players.length), 'startOnline', 'yellow big-btn', s.players.length < 2);
+    if (s.players.length < 2) html += '<p class="muted">' + t('waitFriend') + '</p>';
+  } else html += '<p class="waiting">' + t('waitHostStart', esc(online.hostName())) + '</p>';
+  html += btn(t('rules'), 'rules', 'gray', false, ' data-game="pishpirik"') + btn(t('leave'), 'leaveLobby', 'gray');
+  if (!online.connected) html += '<p class="warn">' + t('reconnecting') + '</p>';
+  return html + '</div>';
+}
+
+async function pSwitchTeam(team) {
+  try { await online.api('/api/team', { code: online.session.code, token: online.session.token, team }); ui.lobbyNote = ''; }
+  catch (e) { ui.lobbyNote = errText(e.code, 'generic'); render(); }
+}
+
+/** Online: a new view of a Pishpirik game arrived from the server. */
+function onPishState(s, firstGameView) {
+  ui.mode = 'online'; ui.screen = 'pgame'; ui.gameType = 'pishpirik';
+  const ev = s.game.event;
+  if (firstGameView || (s.game.roundId !== ui.pRoundId)) {
+    if (s.game.roundId !== ui.pRoundId) { ui.pSel = null; if (!firstGameView) ui.pLast = ''; }
+    ui.pRoundId = s.game.roundId;
+  }
+  if (firstGameView) { ui.lastEventSeq = ev ? ev.seq : 0; render(); return; }
+  if (ev && ev.seq > ui.lastEventSeq) { ui.lastEventSeq = ev.seq; onPishChange(ev); }
+  else render();
+}
+
+// ============================================================
 // Start: a shared link (?kod=ABCD) opens the join screen; a saved game is reopened
 // ============================================================
 
 window.__zhol = ui;
 window.__zholOnline = online;
 window.__zholSolo = solo;
+window.__pishSolo = pishSolo;
 window.__zholChat = chat;
 
 // ============================================================
@@ -2729,6 +3594,7 @@ window.__zholChat = chat;
 const presence = { vid: '', page: '' };
 function pageNow() {
   if (ui.screen === 'game') return ui.mode === 'solo' ? 'game-solo' : 'game-online';
+  if (ui.screen === 'pgame') return ui.mode === 'psolo' ? 'game-solo' : 'game-online';
   if (ui.screen === 'lobby') return 'lobby';
   return 'menu';
 }
